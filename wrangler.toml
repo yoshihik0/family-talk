@@ -1,0 +1,13 @@
+name = "personal-data-hub"
+main = "dist/server/index.js"
+compatibility_date = "2026-05-15"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "dist/client"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "personal-data-hub"
+database_id = "4ff1bb1e-abab-41f3-ae40-506d65732f27"
+migrations_dir = "drizzle"

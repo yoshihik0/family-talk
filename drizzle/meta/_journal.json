@@ -15,6 +15,27 @@
       "when": 1787915039001,
       "tag": "0001_kind_lila_cheney",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787948521505,
+      "tag": "0002_device_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787948521506,
+      "tag": "0003_setup_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1787953243038,
+      "tag": "0004_salty_deadpool",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,10 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { collections, events, identities } from '@/db/schema';
+import { collections, events, identities, records, spaceMembers, spaces } from '@/db/schema';
+import { isNull } from 'drizzle-orm';
 import { getDeviceSession } from '@/lib/auth/session';
 import { createRecord, listRecords } from '@/lib/hub/records';
+import { notifySpaceMembers } from '@/lib/push/send';
 
 async function getMessageCollection(spaceId: string) {
   const [collection] = await getDb()
@@ -13,11 +15,21 @@ async function getMessageCollection(spaceId: string) {
   return collection ?? null;
 }
 
-export async function GET(request: Request) {
-  const session = await getDeviceSession(request);
-  if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
+async function getSpaceAccess(identityId: string, spaceId: string) {
+  const [access] = await getDb().select({ spaceId: spaces.id, spaceName: spaces.name, settings: spaces.settings, role: spaceMembers.role })
+    .from(spaceMembers).innerJoin(spaces, eq(spaceMembers.spaceId, spaces.id))
+    .where(and(eq(spaceMembers.identityId, identityId), eq(spaceMembers.spaceId, spaceId))).limit(1);
+  return access ?? null;
+}
 
-  const collection = await getMessageCollection(session.spaceId);
+export async function GET(request: Request) {
+  const requestedSpaceId = new URL(request.url).searchParams.get('spaceId') ?? '';
+  const session = await getDeviceSession(request, requestedSpaceId || undefined);
+  if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  const spaceId = requestedSpaceId || session.spaceId;
+  const access = await getSpaceAccess(session.identityId, spaceId);
+  if (!access) return Response.json({ error: 'forbidden' }, { status: 403 });
+  const collection = await getMessageCollection(spaceId);
   if (!collection) return Response.json({ error: 'messages_collection_not_found' }, { status: 404 });
 
   const rows = await listRecords({ collectionId: collection.id, kind: 'message', limit: 100 });
@@ -32,26 +44,28 @@ export async function GET(request: Request) {
     avatarLabel: senderMap.get(row.createdBy)?.avatarLabel,
     avatarColor: senderMap.get(row.createdBy)?.avatarColor,
   }));
-
   return Response.json({
-    space: { id: session.spaceId, name: session.spaceName, settings: session.settings },
-    me: { id: session.identityId, displayName: session.displayName, role: session.role },
+    space: { id: access.spaceId, name: access.spaceName, settings: access.settings },
+    me: { id: session.identityId, displayName: session.displayName, role: access.role, metadata: session.identityMetadata },
     messages,
   });
 }
 
 export async function POST(request: Request) {
-  const session = await getDeviceSession(request);
+  const body = await request.json().catch(() => null) as { text?: unknown; spaceId?: unknown } | null;
+  const requestedSpaceId = typeof body?.spaceId === 'string' ? body.spaceId : '';
+  const session = await getDeviceSession(request, requestedSpaceId || undefined);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
-  if (session.role === 'viewer') return Response.json({ error: 'forbidden' }, { status: 403 });
+  const spaceId = requestedSpaceId || session.spaceId;
+  const access = await getSpaceAccess(session.identityId, spaceId);
+  if (!access || access.role === 'viewer') return Response.json({ error: 'forbidden' }, { status: 403 });
 
-  const body = await request.json().catch(() => null) as { text?: unknown } | null;
   const text = typeof body?.text === 'string' ? body.text.trim() : '';
   if (!text || text.length > 2000) {
     return Response.json({ error: 'invalid_message' }, { status: 400 });
   }
 
-  const collection = await getMessageCollection(session.spaceId);
+  const collection = await getMessageCollection(spaceId);
   if (!collection) return Response.json({ error: 'messages_collection_not_found' }, { status: 404 });
 
   const record = await createRecord({
@@ -64,7 +78,7 @@ export async function POST(request: Request) {
 
   await getDb().insert(events).values({
     id: crypto.randomUUID(),
-    spaceId: session.spaceId,
+    spaceId,
     type: 'record.created',
     actorId: session.identityId,
     subjectType: 'record',
@@ -72,6 +86,8 @@ export async function POST(request: Request) {
     payload: { collectionId: collection.id, kind: 'message' },
     createdAt: record.createdAt,
   });
+
+  await notifySpaceMembers(spaceId, session.identityId);
 
   return Response.json({
     message: {
@@ -84,4 +100,24 @@ export async function POST(request: Request) {
       createdAt: record.createdAt.toISOString(),
     },
   }, { status: 201 });
+}
+
+export async function DELETE(request: Request) {
+  const url = new URL(request.url);
+  const requestedSpaceId = url.searchParams.get('spaceId') ?? '';
+  const session = await getDeviceSession(request, requestedSpaceId || undefined);
+  if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  const spaceId = requestedSpaceId || session.spaceId;
+  const messageId = url.searchParams.get('messageId');
+  if (!messageId) return Response.json({ error: 'message_id_required' }, { status: 400 });
+  const access = await getSpaceAccess(session.identityId, spaceId);
+  if (!access) return Response.json({ error: 'forbidden' }, { status: 403 });
+  const collection = await getMessageCollection(spaceId);
+  if (!collection) return Response.json({ error: 'messages_collection_not_found' }, { status: 404 });
+  const [message] = await getDb().select().from(records).where(and(eq(records.id, messageId), eq(records.collectionId, collection.id), eq(records.createdBy, session.identityId), isNull(records.deletedAt))).limit(1);
+  if (!message) return Response.json({ error: 'message_not_found' }, { status: 404 });
+  if (Date.now() - message.createdAt.getTime() > 30 * 60 * 1000) return Response.json({ error: 'message_delete_window_expired' }, { status: 403 });
+  const now = new Date();
+  await getDb().update(records).set({ status: 'deleted', deletedAt: now, updatedAt: now }).where(eq(records.id, messageId));
+  return Response.json({ deleted: messageId });
 }

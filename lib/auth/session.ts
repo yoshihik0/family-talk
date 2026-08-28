@@ -5,6 +5,10 @@ import { deviceSessions, identities, spaceMembers, spaces } from '@/db/schema';
 export const SESSION_COOKIE = 'pdh_session';
 const SESSION_DAYS = 90;
 
+export function spaceSessionCookieName(spaceId: string) {
+  return `pdh_space_${spaceId.replace(/[^A-Za-z0-9_-]/g, '_')}`;
+}
+
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
@@ -41,14 +45,17 @@ export async function createDeviceSession(identityId: string, spaceId: string, l
   return { token, expiresAt };
 }
 
-export async function getDeviceSession(request: Request) {
+export async function getDeviceSession(request: Request, preferredSpaceId?: string) {
   const cookie = request.headers.get('cookie') ?? '';
-  const token = cookie
+  const cookieValues = new Map(cookie
     .split(';')
     .map((part) => part.trim())
-    .find((part) => part.startsWith(`${SESSION_COOKIE}=`))
-    ?.slice(SESSION_COOKIE.length + 1);
-
+    .map((part) => {
+      const separator = part.indexOf('=');
+      return separator > 0 ? [part.slice(0, separator), part.slice(separator + 1)] as const : ['', ''] as const;
+    })
+    .filter(([name]) => Boolean(name)));
+  const token = (preferredSpaceId && cookieValues.get(spaceSessionCookieName(preferredSpaceId))) || cookieValues.get(SESSION_COOKIE);
   if (!token) return null;
 
   const now = new Date();
@@ -88,9 +95,9 @@ export async function getDeviceSession(request: Request) {
   return session;
 }
 
-export function makeSessionCookie(token: string, expiresAt: Date, secure: boolean) {
+export function makeSessionCookie(token: string, expiresAt: Date, secure: boolean, spaceId?: string) {
   const attributes = [
-    `${SESSION_COOKIE}=${token}`,
+    `${spaceId ? spaceSessionCookieName(spaceId) : SESSION_COOKIE}=${token}`,
     'Path=/',
     'HttpOnly',
     'SameSite=Strict',

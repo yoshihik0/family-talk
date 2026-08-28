@@ -1,15 +1,22 @@
 import { getDb } from '@/db';
-import { invites } from '@/db/schema';
+import { eq } from 'drizzle-orm';
+import { invites, spaces, type JsonObject } from '@/db/schema';
 import { requireHostForSpace } from '@/lib/auth/authorize';
 import { createOpaqueToken, getDeviceSession, hashToken } from '@/lib/auth/session';
 
 export async function POST(request: Request) {
-  const session = await getDeviceSession(request);
-  if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
   const body = await request.json().catch(() => null) as { spaceId?: unknown } | null;
-  const spaceId = typeof body?.spaceId === 'string' ? body.spaceId : session.spaceId;
+  const requestedSpaceId = typeof body?.spaceId === 'string' ? body.spaceId : '';
+  const session = await getDeviceSession(request, requestedSpaceId || undefined);
+  if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  const spaceId = requestedSpaceId || session.spaceId;
   const auth = await requireHostForSpace(request, spaceId);
   if ('error' in auth) return auth.error;
+  const [space] = await getDb().select({ settings: spaces.settings }).from(spaces).where(eq(spaces.id, spaceId)).limit(1);
+  const appProfile = ((space?.settings ?? {}) as JsonObject).appProfile as JsonObject | undefined;
+  if (!appProfile || typeof appProfile.name !== 'string' || typeof appProfile.icon !== 'string' || typeof appProfile.color !== 'string') {
+    return Response.json({ error: 'app_profile_required' }, { status: 409 });
+  }
 
   const token = createOpaqueToken();
   const now = new Date();

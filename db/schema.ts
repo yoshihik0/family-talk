@@ -66,6 +66,19 @@ export const deviceSessions = sqliteTable('device_sessions', {
   index('idx_device_sessions_space').on(table.spaceId),
 ]);
 
+export const deviceLinks = sqliteTable('device_links', {
+  id: text('id').primaryKey(),
+  spaceId: text('space_id').notNull().references(() => spaces.id, { onDelete: 'cascade' }),
+  identityId: text('identity_id').notNull().references(() => identities.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+  usedAt: integer('used_at', { mode: 'timestamp_ms' }),
+  createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+}, (table) => [
+  uniqueIndex('idx_device_links_token_hash').on(table.tokenHash),
+  index('idx_device_links_identity').on(table.identityId),
+]);
+
 export const collections = sqliteTable('collections', {
   id: text('id').primaryKey(),
   spaceId: text('space_id').notNull().references(() => spaces.id, { onDelete: 'cascade' }),

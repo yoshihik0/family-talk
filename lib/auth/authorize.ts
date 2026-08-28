@@ -3,17 +3,8 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { spaceMembers } from '@/db/schema';
 
-export async function requireHostSession(request: Request) {
-  const session = await getDeviceSession(request);
-  if (!session) return { error: Response.json({ error: 'unauthorized' }, { status: 401 }) } as const;
-  if (session.role !== 'owner' && session.role !== 'host') {
-    return { error: Response.json({ error: 'forbidden' }, { status: 403 }) } as const;
-  }
-  return { session } as const;
-}
-
 export async function requireHostForSpace(request: Request, spaceId: string) {
-  const session = await getDeviceSession(request);
+  const session = await getDeviceSession(request, spaceId);
   if (!session) return { error: Response.json({ error: 'unauthorized' }, { status: 401 }) } as const;
 
   const [membership] = await getDb()

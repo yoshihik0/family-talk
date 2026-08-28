@@ -1,18 +1,16 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { identities, spaceMembers, spaces } from '@/db/schema';
+import { identities, spaceMembers } from '@/db/schema';
+import { requireHostForSpace } from '@/lib/auth/authorize';
 import { getDeviceSession } from '@/lib/auth/session';
 
 export async function GET(request: Request) {
-  const session = await getDeviceSession(request);
+  const requestedSpaceId = new URL(request.url).searchParams.get('spaceId') ?? '';
+  const session = await getDeviceSession(request, requestedSpaceId || undefined);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
-  const requestedSpaceId = new URL(request.url).searchParams.get('spaceId') ?? session.spaceId;
-  const managedSpaces = await getDb().select({ id: spaces.id, name: spaces.name, type: spaces.type, settings: spaces.settings })
-    .from(spaceMembers).innerJoin(spaces, eq(spaceMembers.spaceId, spaces.id))
-    .where(and(eq(spaceMembers.identityId, session.identityId), inArray(spaceMembers.role, ['owner', 'host'])))
-    .orderBy(spaces.createdAt);
-  const selected = managedSpaces.find((space) => space.id === requestedSpaceId);
-  if (!selected) return Response.json({ error: 'forbidden' }, { status: 403 });
+  const spaceId = requestedSpaceId || session.spaceId;
+  const auth = await requireHostForSpace(request, spaceId);
+  if ('error' in auth) return auth.error;
 
   const members = await getDb()
     .select({
@@ -24,19 +22,11 @@ export async function GET(request: Request) {
     })
     .from(spaceMembers)
     .innerJoin(identities, eq(spaceMembers.identityId, identities.id))
-    .where(eq(spaceMembers.spaceId, selected.id))
+    .where(eq(spaceMembers.spaceId, spaceId))
     .orderBy(spaceMembers.createdAt);
 
-  return Response.json({
-    space: {
-      ...selected,
-    },
-    me: {
-      id: session.identityId,
-      displayName: session.displayName,
-      role: (await getDb().select({ role: spaceMembers.role }).from(spaceMembers).where(and(eq(spaceMembers.spaceId, selected.id), eq(spaceMembers.identityId, session.identityId))).limit(1))[0]?.role ?? 'member',
-    },
-    spaces: managedSpaces,
-    members,
-  });
+  // 管理者を一番上に表示する。
+  members.sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0));
+
+  return Response.json({ members });
 }
