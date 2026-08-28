@@ -29,7 +29,7 @@ type GroupMember = {
   avatarColor?: string;
 };
 
-type GroupPolicy = { allowText?: boolean; allowImage?: boolean; allowAudio?: boolean; voiceDuration?: number };
+type GroupPolicy = { allowText?: boolean; allowAudio?: boolean; voiceDuration?: number };
 type AppProfile = { name?: string; icon?: string; color?: string };
 
 type RecognitionEvent = { results: ArrayLike<{ 0: { transcript: string } }> };

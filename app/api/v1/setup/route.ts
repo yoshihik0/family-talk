@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     type: 'family',
     settings: {
       appProfile: { name: Array.from(groupName).slice(0, 4).join(''), icon: '家', color: '#3f7d61' },
-      policy: { allowText: true, allowAudio: true, allowImage: false },
+      policy: { allowText: true, allowAudio: true },
     },
     createdAt: now,
     updatedAt: now,

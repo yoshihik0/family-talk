@@ -15,7 +15,7 @@ export async function PATCH(request: Request) {
     removeMemberId?: unknown;
     name?: unknown;
     appProfile?: { name?: unknown; icon?: unknown; color?: unknown };
-    policy?: { allowImage?: unknown; allowAudio?: unknown; voiceDuration?: unknown };
+    policy?: { voiceDuration?: unknown };
   } | null;
   const requestedSpaceId = typeof body?.spaceId === 'string' ? body.spaceId : '';
   const session = await getDeviceSession(request, requestedSpaceId || undefined);
@@ -76,8 +76,7 @@ export async function PATCH(request: Request) {
     appProfile: { name: appName, icon: appIcon, color: appColor },
     policy: {
       allowText: true,
-      allowImage: Boolean(body?.policy?.allowImage),
-      allowAudio: Boolean(body?.policy?.allowAudio),
+      allowAudio: true,
       voiceDuration,
     },
   };
