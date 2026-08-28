@@ -18,6 +18,7 @@ type ConversationPayload = {
   space: { id: string; name: string; settings: Record<string, unknown> };
   me: { id: string; displayName: string; role: string; metadata?: { avatarLabel?: string; avatarColor?: string } };
   messages: Message[];
+  hasMore: boolean;
 };
 
 type GroupMember = {
@@ -60,6 +61,21 @@ function canManage(role: string) {
 }
 
 class SetupRequiredError extends Error {}
+
+// 定期更新は常に最新50件だけを取り直す。その範囲より古い(「もっと見る」で読み込んだ)
+// 履歴はそのままに、範囲内だけを新しい結果で置き換える — 削除や編集もここで反映される。
+function mergeLatestMessages(current: Message[], latest: Message[]): Message[] {
+  if (latest.length === 0) return current;
+  const windowStart = latest[0].createdAt;
+  const olderHistory = current.filter((message) => message.createdAt < windowStart);
+  return [...olderHistory, ...latest];
+}
+
+function prependOlderMessages(current: Message[], older: Message[]): Message[] {
+  const existingIds = new Set(current.map((message) => message.id));
+  const newOnes = older.filter((message) => !existingIds.has(message.id));
+  return [...newOnes, ...current];
+}
 
 async function fetchConversation(fixedSpaceId?: string) {
   const spaceQuery = fixedSpaceId ?? new URLSearchParams(window.location.search).get('spaceId');
@@ -116,7 +132,11 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const [inviteUrl, setInviteUrl] = useState('');
   const [inviteExpiresAt, setInviteExpiresAt] = useState('');
   const [inviteQr, setInviteQr] = useState('');
+  const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
   const timelineEnd = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const pendingScrollAdjustRef = useRef<{ prevScrollHeight: number; prevScrollTop: number } | null>(null);
   const recognitionRef = useRef<Recognition | null>(null);
   const voiceTimerRef = useRef<number | null>(null);
 
@@ -129,6 +149,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
         const savedDuration = Number(window.localStorage.getItem(`family-chat-voice-duration-${data.space.id}`));
         const groupDuration = Number((data.space.settings.policy as { voiceDuration?: unknown } | undefined)?.voiceDuration);
         setPersonalDuration(savedDuration === 15 || savedDuration === 30 || savedDuration === 60 ? savedDuration : groupDuration === 15 || groupDuration === 30 || groupDuration === 60 ? groupDuration : 60);
+        setHasMoreOlder(data.hasMore);
       })
       .catch((thrown) => (thrown instanceof SetupRequiredError ? setNeedsSetup(true) : setError(true)));
   }, [fixedSpaceId]);
@@ -141,7 +162,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       fetchConversation(fixedSpaceId)
         .then((next) => {
           if (next.space.id !== conversation.space.id) return;
-          setConversation((current) => current ? { ...current, messages: next.messages, space: next.space, me: next.me } : next);
+          setConversation((current) => current ? { ...current, messages: mergeLatestMessages(current.messages, next.messages), space: next.space, me: next.me } : next);
         })
         .catch(() => undefined);
     };
@@ -249,8 +270,33 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   }, [settingsOpen, conversation?.space.id]);
 
   useEffect(() => {
+    const pending = pendingScrollAdjustRef.current;
+    if (pending && timelineRef.current) {
+      // 上に読み込んだ分だけ、見ていた位置がずれないようスクロールを補正する。
+      const newScrollHeight = timelineRef.current.scrollHeight;
+      timelineRef.current.scrollTop = pending.prevScrollTop + (newScrollHeight - pending.prevScrollHeight);
+      pendingScrollAdjustRef.current = null;
+      return;
+    }
     timelineEnd.current?.scrollIntoView({ block: 'end' });
   }, [conversation?.messages.length]);
+
+  async function loadOlderMessages() {
+    if (!conversation || loadingOlder || !hasMoreOlder) return;
+    const oldest = conversation.messages[0]?.createdAt;
+    if (!oldest) return;
+    setLoadingOlder(true);
+    const params = new URLSearchParams({ spaceId: conversation.space.id, before: oldest });
+    const response = await fetch(`/api/v1/messages?${params.toString()}`, { cache: 'no-store' }).catch(() => null);
+    setLoadingOlder(false);
+    if (!response?.ok) return;
+    const data = await response.json() as ConversationPayload;
+    setHasMoreOlder(data.hasMore);
+    if (timelineRef.current) {
+      pendingScrollAdjustRef.current = { prevScrollHeight: timelineRef.current.scrollHeight, prevScrollTop: timelineRef.current.scrollTop };
+    }
+    setConversation((current) => current ? { ...current, messages: prependOlderMessages(current.messages, data.messages) } : current);
+  }
 
   async function submitSetup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -605,7 +651,8 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
           </>}
         </section>}
 
-        <div className="timeline" aria-label="家族の会話" aria-live="polite">
+        <div className="timeline" aria-label="家族の会話" aria-live="polite" ref={timelineRef}>
+          {hasMoreOlder && <button type="button" className="load-more" onClick={loadOlderMessages} disabled={loadingOlder}>{loadingOlder ? '読み込んでいます…' : 'もっと見る'}</button>}
           {conversation.messages.map((message, index) => {
             const mine = message.senderId === conversation.me.id;
             const time = new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.createdAt));

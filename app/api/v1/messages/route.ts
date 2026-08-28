@@ -22,8 +22,13 @@ async function getSpaceAccess(identityId: string, spaceId: string) {
   return access ?? null;
 }
 
+const MESSAGES_PAGE_SIZE = 50;
+
 export async function GET(request: Request) {
-  const requestedSpaceId = new URL(request.url).searchParams.get('spaceId') ?? '';
+  const url = new URL(request.url);
+  const requestedSpaceId = url.searchParams.get('spaceId') ?? '';
+  const beforeParam = url.searchParams.get('before');
+  const before = beforeParam && !Number.isNaN(Date.parse(beforeParam)) ? new Date(beforeParam) : undefined;
   const session = await getDeviceSession(request, requestedSpaceId || undefined);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
   const spaceId = requestedSpaceId || session.spaceId;
@@ -32,11 +37,13 @@ export async function GET(request: Request) {
   const collection = await getMessageCollection(spaceId);
   if (!collection) return Response.json({ error: 'messages_collection_not_found' }, { status: 404 });
 
-  const rows = await listRecords({ collectionId: collection.id, kind: 'message', limit: 100 });
-  const senderIds = [...new Set(rows.map((row) => row.createdBy))];
+  const rows = await listRecords({ collectionId: collection.id, kind: 'message', limit: MESSAGES_PAGE_SIZE + 1, before });
+  const hasMore = rows.length > MESSAGES_PAGE_SIZE;
+  const pageRows = hasMore ? rows.slice(0, MESSAGES_PAGE_SIZE) : rows;
+  const senderIds = [...new Set(pageRows.map((row) => row.createdBy))];
   const senderRows = senderIds.length ? await getDb().select({ id: identities.id, metadata: identities.metadata }).from(identities).where(inArray(identities.id, senderIds)) : [];
   const senderMap = new Map(senderRows.map((sender) => [sender.id, sender.metadata]));
-  const messages = rows.reverse().map((row) => ({
+  const messages = pageRows.reverse().map((row) => ({
     id: row.id,
     senderId: row.createdBy,
     createdAt: row.createdAt.toISOString(),
@@ -48,6 +55,7 @@ export async function GET(request: Request) {
     space: { id: access.spaceId, name: access.spaceName, settings: access.settings },
     me: { id: session.identityId, displayName: session.displayName, role: access.role, metadata: session.identityMetadata },
     messages,
+    hasMore,
   });
 }
 
