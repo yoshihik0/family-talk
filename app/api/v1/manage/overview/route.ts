@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { identities, spaceMembers } from '@/db/schema';
+import { identities, spaceMembers, type JsonObject } from '@/db/schema';
 import { requireHostForSpace } from '@/lib/auth/authorize';
 import { getDeviceSession } from '@/lib/auth/session';
 
@@ -28,5 +28,11 @@ export async function GET(request: Request) {
   // 管理者を一番上に表示する。
   members.sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0));
 
-  return Response.json({ members });
+  return Response.json({
+    members: members.map(({ metadata, ...member }) => ({
+      ...member,
+      avatarLabel: typeof (metadata as JsonObject)?.avatarLabel === 'string' ? (metadata as JsonObject).avatarLabel : undefined,
+      avatarColor: typeof (metadata as JsonObject)?.avatarColor === 'string' ? (metadata as JsonObject).avatarColor : undefined,
+    })),
+  });
 }

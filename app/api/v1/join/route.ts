@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   const appProfile = ((space?.settings ?? {}) as JsonObject).appProfile as JsonObject | undefined;
   return Response.json({
     spaceName: space?.name ?? '',
-    icon: typeof appProfile?.icon === 'string' ? appProfile.icon : '家',
+    icon: typeof appProfile?.icon === 'string' ? appProfile.icon : '🏡',
     color: typeof appProfile?.color === 'string' ? appProfile.color : '#3f7d61',
   });
 }

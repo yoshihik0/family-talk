@@ -104,7 +104,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const [needsSetup, setNeedsSetup] = useState(false);
   const [setupOwnerName, setSetupOwnerName] = useState('');
   const [setupGroupName, setSetupGroupName] = useState('');
-  const [setupIcon, setSetupIcon] = useState('家');
+  const [setupIcon, setSetupIcon] = useState('🏡');
   const [setupColor, setSetupColor] = useState(profileColors[0]);
   const [settingUp, setSettingUp] = useState(false);
   const [sending, setSending] = useState(false);
@@ -294,7 +294,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     const response = await fetch('/api/v1/setup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ownerName, groupName: groupNameInput, icon: setupIcon.trim() || '家', color: setupColor }),
+      body: JSON.stringify({ ownerName, groupName: groupNameInput, icon: setupIcon.trim() || '🏡', color: setupColor }),
     }).catch(() => null);
     if (!response?.ok) {
       setSettingUp(false);
@@ -493,7 +493,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
             <label>あなたの名前<input value={setupOwnerName} maxLength={40} onChange={(event) => setSetupOwnerName(event.target.value)} placeholder="例：お母さん" /></label>
             <label>グループの名前<input value={setupGroupName} maxLength={40} onChange={(event) => setSetupGroupName(event.target.value)} placeholder="例：実家" /></label>
             <div className="setup-icon-row">
-              <div className="setup-icon-preview" aria-hidden="true" style={{ background: setupColor }}>{setupIcon || '家'}</div>
+              <div className="setup-icon-preview" aria-hidden="true" style={{ background: setupColor }}>{setupIcon || '🏡'}</div>
               <label>アイコン<input value={setupIcon} maxLength={8} onChange={(event) => setSetupIcon(event.target.value)} placeholder="例：🏠" /></label>
             </div>
             <div className="personal-color-options" aria-label="アプリの色">{profileColors.map((color) => <button key={color} type="button" aria-label={color} className={color === setupColor ? 'is-selected' : ''} style={{ background: color }} onClick={() => setSetupColor(color)} />)}</div>

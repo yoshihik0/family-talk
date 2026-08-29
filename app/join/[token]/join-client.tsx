@@ -6,7 +6,7 @@ export default function JoinClient({ token }: { token: string }) {
   const [displayName, setDisplayName] = useState('');
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState(false);
-  const [icon, setIcon] = useState('家');
+  const [icon, setIcon] = useState('🏡');
   const [color, setColor] = useState('#3f7d61');
 
   useEffect(() => {
