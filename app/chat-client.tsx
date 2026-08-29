@@ -106,6 +106,8 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const [needsSetup, setNeedsSetup] = useState(false);
   const [setupOwnerName, setSetupOwnerName] = useState('');
   const [setupGroupName, setSetupGroupName] = useState('');
+  const [setupIcon, setSetupIcon] = useState('家');
+  const [setupColor, setSetupColor] = useState(profileColors[0]);
   const [settingUp, setSettingUp] = useState(false);
   const [sending, setSending] = useState(false);
   const [listening, setListening] = useState(false);
@@ -148,7 +150,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
         setPersonalColor(data.me.metadata?.avatarColor ?? profileColors[0]);
         const savedDuration = Number(window.localStorage.getItem(`family-chat-voice-duration-${data.space.id}`));
         const groupDuration = Number((data.space.settings.policy as { voiceDuration?: unknown } | undefined)?.voiceDuration);
-        setPersonalDuration(savedDuration === 15 || savedDuration === 30 || savedDuration === 60 ? savedDuration : groupDuration === 15 || groupDuration === 30 || groupDuration === 60 ? groupDuration : 60);
+        setPersonalDuration(savedDuration === 15 || savedDuration === 30 || savedDuration === 60 ? savedDuration : groupDuration === 15 || groupDuration === 30 || groupDuration === 60 ? groupDuration : 30);
         setHasMoreOlder(data.hasMore);
       })
       .catch((thrown) => (thrown instanceof SetupRequiredError ? setNeedsSetup(true) : setError(true)));
@@ -307,7 +309,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     const response = await fetch('/api/v1/setup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ownerName, groupName: groupNameInput }),
+      body: JSON.stringify({ ownerName, groupName: groupNameInput, icon: setupIcon.trim() || '家', color: setupColor }),
     }).catch(() => null);
     if (!response?.ok) {
       setSettingUp(false);
@@ -384,7 +386,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     setListening(true);
     recognition.start();
     const configuredDuration = Number((conversation?.space.settings.policy as { voiceDuration?: unknown } | undefined)?.voiceDuration);
-    const duration = personalDuration || (configuredDuration === 15 || configuredDuration === 30 || configuredDuration === 60 ? configuredDuration : 60);
+    const duration = personalDuration || (configuredDuration === 15 || configuredDuration === 30 || configuredDuration === 60 ? configuredDuration : 30);
     voiceTimerRef.current = window.setTimeout(stopVoiceInput, duration * 1000);
   }
 
@@ -430,7 +432,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     }
     setConversation((current) => current ? { ...current, me: { ...current.me, metadata: { ...current.me.metadata, avatarLabel: personalAvatar, avatarColor: personalColor } }, messages: current.messages.map((message) => message.senderId === current.me.id ? { ...message, avatarLabel: personalAvatar, avatarColor: personalColor } : message) } : current);
     setSavingPersonalProfile(false);
-    setSettingsOpen(false);
   }
 
   async function createDeviceLink() {
@@ -527,10 +528,15 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       <main className="app-shell">
         <section className="state-card setup-card">
           <h1>はじめまして</h1>
-          <p>あなたの名前と、家族グループの名前を決めてください。</p>
+          <p>あなたの名前と、家族グループの名前を決めてください。アイコンと色は、あとから変えてもホーム画面のアイコンには反映されにくいので、ここで決めておくのがおすすめです。</p>
           <form onSubmit={submitSetup}>
             <label>あなたの名前<input value={setupOwnerName} maxLength={40} onChange={(event) => setSetupOwnerName(event.target.value)} placeholder="例：お母さん" /></label>
             <label>グループの名前<input value={setupGroupName} maxLength={40} onChange={(event) => setSetupGroupName(event.target.value)} placeholder="例：実家" /></label>
+            <div className="setup-icon-row">
+              <div className="setup-icon-preview" aria-hidden="true" style={{ background: setupColor }}>{setupIcon || '家'}</div>
+              <label>アイコン<input value={setupIcon} maxLength={8} onChange={(event) => setSetupIcon(event.target.value)} placeholder="例：🏠" /></label>
+            </div>
+            <div className="personal-color-options" aria-label="アプリの色">{profileColors.map((color) => <button key={color} type="button" aria-label={color} className={color === setupColor ? 'is-selected' : ''} style={{ background: color }} onClick={() => setSetupColor(color)} />)}</div>
             <button type="submit" disabled={!setupOwnerName.trim() || !setupGroupName.trim() || settingUp}>{settingUp ? '作っています…' : 'はじめる'}</button>
           </form>
         </section>
@@ -617,7 +623,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
               <label>グループ名<input className="wide-input" value={groupName} maxLength={40} onChange={(event) => { setGroupName(event.target.value); setGroupSaved(false); }} /></label>
               <label>アイコン<input value={appProfile.icon ?? ''} onChange={(event) => { setAppProfile((current) => ({ ...current, icon: event.target.value })); setGroupSaved(false); }} /></label>
               <div className="personal-color-options" aria-label="アプリの色">{profileColors.map((color) => <button key={color} type="button" aria-label={color} className={color === appProfile.color ? 'is-selected' : ''} style={{ background: color }} onClick={() => { setAppProfile((current) => ({ ...current, color })); setGroupSaved(false); }} />)}</div>
-              <label>話す時間<select value={policy.voiceDuration ?? 60} onChange={(event) => { setPolicy((current) => ({ ...current, voiceDuration: Number(event.target.value) })); setGroupSaved(false); }}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>
+              <label>話す時間<select value={policy.voiceDuration ?? 30} onChange={(event) => { setPolicy((current) => ({ ...current, voiceDuration: Number(event.target.value) })); setGroupSaved(false); }}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>
               <button className="personal-save" type="button" onClick={saveGroupSettings} disabled={savingGroup}>{savingGroup ? '保存中…' : '保存'}</button>
               {groupSaved && <small className="save-note">保存しました</small>}
             </div>

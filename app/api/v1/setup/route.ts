@@ -1,6 +1,7 @@
 import { getDb } from '@/db';
 import { collections, identities, spaceMembers, spaces } from '@/db/schema';
 import { createDeviceSession, makeSessionCookie } from '@/lib/auth/session';
+import { isSingleGrapheme } from '@/lib/text/graphemes';
 
 // このデプロイに1つもグループが無いあいだだけ、誰でもここから最初のグループを作れる。
 // 1つでもできたら、以後は誰であっても常に拒否する。
@@ -16,9 +17,11 @@ export async function GET() {
 export async function POST(request: Request) {
   if (await alreadySetUp()) return Response.json({ error: 'already_set_up' }, { status: 409 });
 
-  const body = await request.json().catch(() => null) as { ownerName?: unknown; groupName?: unknown } | null;
+  const body = await request.json().catch(() => null) as { ownerName?: unknown; groupName?: unknown; icon?: unknown; color?: unknown } | null;
   const ownerName = typeof body?.ownerName === 'string' ? body.ownerName.trim() : '';
   const groupName = typeof body?.groupName === 'string' ? body.groupName.trim() : '';
+  const icon = typeof body?.icon === 'string' && isSingleGrapheme(body.icon) ? body.icon.trim() : '家';
+  const color = typeof body?.color === 'string' && /^#[0-9a-f]{6}$/i.test(body.color) ? body.color : '#3f7d61';
   if (!ownerName || ownerName.length > 40 || !groupName || groupName.length > 40) {
     return Response.json({ error: 'invalid_input' }, { status: 400 });
   }
@@ -44,8 +47,8 @@ export async function POST(request: Request) {
     name: groupName,
     type: 'family',
     settings: {
-      appProfile: { name: Array.from(groupName).slice(0, 4).join(''), icon: '家', color: '#3f7d61' },
-      policy: { allowText: true, allowAudio: true },
+      appProfile: { name: Array.from(groupName).slice(0, 4).join(''), icon, color },
+      policy: { allowText: true, allowAudio: true, voiceDuration: 30 },
     },
     createdAt: now,
     updatedAt: now,

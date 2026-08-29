@@ -70,7 +70,7 @@ export async function PATCH(request: Request) {
     return Response.json({ error: 'invalid_app_profile' }, { status: 400 });
   }
   const requestedVoiceDuration = Number(body?.policy?.voiceDuration);
-  const voiceDuration = requestedVoiceDuration === 15 || requestedVoiceDuration === 30 || requestedVoiceDuration === 60 ? requestedVoiceDuration : 60;
+  const voiceDuration = requestedVoiceDuration === 15 || requestedVoiceDuration === 30 || requestedVoiceDuration === 60 ? requestedVoiceDuration : 30;
   const settings: JsonObject = {
     ...current,
     appProfile: { name: appName, icon: appIcon, color: appColor },
