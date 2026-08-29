@@ -498,6 +498,9 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       window.alert('30分を過ぎたか、すでに削除されています。');
       return;
     }
+    if (timelineRef.current) {
+      pendingScrollAdjustRef.current = { prevScrollHeight: timelineRef.current.scrollHeight, prevScrollTop: timelineRef.current.scrollTop };
+    }
     setConversation((current) => current ? { ...current, messages: current.messages.filter((message) => message.id !== messageId) } : current);
   }
 
