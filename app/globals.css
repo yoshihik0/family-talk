@@ -218,9 +218,10 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .member-confirm { display: flex; flex: 0 0 auto; gap: 6px; }
 .admin-links-setting { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .admin-tool-link { align-self: flex-start; padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; }
-.version-row { display: flex; align-items: center; justify-content: space-between; gap: 9px; font-size: 12px; color: var(--muted); }
+.version-row { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-start; gap: 9px; font-size: 12px; color: var(--muted); }
 .version-row button { padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
-.admin-credit { margin-top: 4px; text-align: center; }
+.update-status { font-weight: 700; }
+.admin-credit { margin-top: 4px; text-align: left; }
 .admin-credit a { color: var(--muted); text-decoration: none; }
 button.confirm-danger { color: #a1483f; background: #f6e6e4; border-color: #e3bcb7; }
 button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0; }
@@ -230,9 +231,13 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 .expandable-panel p { width: 100%; margin: 0; overflow-wrap: anywhere; font-size: 11px; }
 .expandable-panel button { padding: 7px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
 .expandable-panel img { width: 132px; height: 132px; padding: 6px; background: white; border-radius: 9px; }
-.personal-color-options { display: flex; gap: 7px; }
+.personal-color-options { display: flex; align-items: center; gap: 7px; }
 .personal-color-options button { width: 22px; height: 22px; padding: 0; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 0 1px #ccd6d0; }
 .personal-color-options button.is-selected { box-shadow: 0 0 0 2px var(--context-primary); }
+.personal-color-options input[type="color"] { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; box-shadow: 0 0 0 1px #ccd6d0; background: none; }
+.personal-color-options input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.personal-color-options input[type="color"]::-webkit-color-swatch { border: 2px solid white; border-radius: 50%; }
+.personal-settings-main .setup-icon-preview { width: 44px; height: 44px; font-size: 18px; border-radius: 14px; }
 .personal-save, .personal-notification { min-height: 34px; padding: 7px 9px; color: var(--context-strong); background: var(--context-soft); border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
 .personal-notification { color: var(--muted); background: white; border-color: var(--line); }
 .device-link-toggle { min-height: 34px; margin-left: auto; padding: 7px 9px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }

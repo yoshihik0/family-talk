@@ -30,10 +30,12 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
       return;
     }
     const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition') ?? '';
+    const filenameMatch = disposition.match(/filename="([^"]+)"/);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `family-talk-${spaceId}-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = filenameMatch?.[1] ?? `family-talk-${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -54,7 +56,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
             <div className="admin-tool-row">
               <div>
                 <strong>会話ログをダウンロード</strong>
-                <small>削除済みの発言も含めて、全件をJSONファイルで保存します。</small>
+                <small>削除済みの発言も含めて、全件をCSVファイルで保存します。</small>
               </div>
               <button type="button" onClick={downloadLog} disabled={downloading}>{downloading ? '準備中…' : 'ダウンロード'}</button>
             </div>

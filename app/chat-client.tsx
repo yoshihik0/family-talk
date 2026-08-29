@@ -51,7 +51,7 @@ const textSizeLabels: Record<TextSize, string> = {
   large: '大',
   xlarge: '特大',
 };
-const profileColors = ['#3f7d61', '#b45f45', '#426f9a', '#8b5d9b', '#c48735', '#5e7185'];
+const profileColors = ['#3f7d61', '#c1442e', '#426f9a', '#8b5d9b', '#c48735', '#5e7185'];
 
 // 設定の入口は誰でも同じ歯車ひとつ。管理できる人にだけ、その中身が深くなる。
 function canManage(role: string) {
@@ -594,8 +594,12 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
           <button className="personal-settings-close" type="button" aria-label="閉じる" onClick={() => setSettingsOpen(false)}>×</button>
           <div className="personal-settings-main">
             <strong>自分の設定</strong>
+            <div className="setup-icon-preview" aria-hidden="true" style={{ background: personalColor }}>{personalAvatar || conversation.me.displayName.slice(0, 1)}</div>
             <label>アイコン<input value={personalAvatar} maxLength={20} onChange={(event) => setPersonalAvatar(event.target.value)} /></label>
-            <div className="personal-color-options" aria-label="自分の色">{profileColors.map((color) => <button key={color} type="button" aria-label={color} className={color === personalColor ? 'is-selected' : ''} style={{ background: color }} onClick={() => setPersonalColor(color)} />)}</div>
+            <div className="personal-color-options" aria-label="自分の色">
+              {profileColors.map((color) => <button key={color} type="button" aria-label={color} className={color === personalColor ? 'is-selected' : ''} style={{ background: color }} onClick={() => setPersonalColor(color)} />)}
+              <input type="color" aria-label="色を自由に選ぶ" value={personalColor} onChange={(event) => setPersonalColor(event.target.value)} />
+            </div>
             {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <label>話す時間<select value={personalDuration} onChange={(event) => { const duration = Number(event.target.value); setPersonalDuration(duration); window.localStorage.setItem(`family-chat-voice-duration-${conversation.space.id}`, String(duration)); }}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>}
             <button className="personal-save" type="button" onClick={savePersonalProfile} disabled={savingPersonalProfile}>{savingPersonalProfile ? '保存中…' : '保存'}</button>
             <button className="personal-notification" type="button" onClick={requestNotifications} disabled={notificationStatus === 'unsupported' || notificationStatus === 'granted' || notificationStatus === 'denied'}>{notificationStatus === 'granted' ? '通知を許可済み' : notificationStatus === 'denied' ? '通知は未許可' : notificationStatus === 'unsupported' ? '通知に非対応' : '通知を許可'}</button>
@@ -640,15 +644,15 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
               <a className="admin-tool-link" href={`/admin/${encodeURIComponent(conversation.space.id)}`} target="_blank" rel="noreferrer">管理ツールを開く</a>
               <div className="version-row">
                 <span>バージョン {appVersion || '…'}</span>
-                {updateCheck !== 'available' && <button type="button" onClick={checkForUpdate} disabled={updateCheck === 'checking'}>{updateCheck === 'checking' ? '確認中…' : 'アップデートを確認'}</button>}
+                {(updateCheck === 'idle' || updateCheck === 'checking') && <button type="button" onClick={checkForUpdate} disabled={updateCheck === 'checking'}>{updateCheck === 'checking' ? '確認中…' : 'アップデートを確認'}</button>}
+                {updateCheck === 'latest' && <span className="update-status">最新版です</span>}
+                {updateCheck === 'error' && <button type="button" onClick={checkForUpdate}>確認できませんでした・もう一度</button>}
               </div>
-              {updateCheck === 'latest' && <small className="save-note">最新版です</small>}
-              {updateCheck === 'error' && <small>確認できませんでした。しばらくしてからもう一度お試しください。</small>}
               {updateCheck === 'available' && <div className="expandable-panel">
                 <small>新しいバージョンがあります({latestVersion})。下の手順をAIエージェントに渡してください。</small>
                 <button type="button" onClick={copyUpdateInstructions}>{updateCopied ? 'コピーしました' : '更新手順をコピー'}</button>
               </div>}
-              <small className="admin-credit"><a href="https://yoshihiko.com" target="_blank" rel="noreferrer">yoshihiko.com</a></small>
+              <small className="admin-credit">制作: <a href="https://yoshihiko.com" target="_blank" rel="noreferrer">yoshihiko.com</a></small>
             </div>
           </>}
         </section>}
