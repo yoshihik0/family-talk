@@ -17,6 +17,8 @@ Cloudflareのアカウントさえあれば、CLIやGitの知識なしでボタ�
 
 シークレットの入力や事前設定は不要です。Web Push通知だけは任意で、使う場合は後から `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` をCloudflareのWorker設定でシークレットとして追加してください([web-push generate-vapid-keys](https://www.npmjs.com/package/web-push)で生成できます)。
 
+ボタンの場合、CloudflareのアカウントとあわせてGitHub(またはGitLab)のアカウントも必要です。GitHubを使いたくない場合は、下の「CLIでデプロイする場合」なら**Cloudflareのアカウントだけ**で設置できます。
+
 ## 現在の実装
 
 - 家族のおしゃべりのモバイルファースト画面
@@ -54,11 +56,15 @@ npm run build
 
 ## CLIでデプロイする場合
 
-ボタンを使わず、自分でWranglerからデプロイすることもできます。
+ボタン(GitHub連携)を使わず、Cloudflareのアカウントだけで設置する方法です。ターミナルの操作が必要です。
 
 ```bash
-npx wrangler d1 create personal-data-hub  # 初回のみ。表示されたdatabase_idをwrangler.tomlに反映
-npm run deploy                            # ビルド → マイグレーション適用 → デプロイ
+git clone https://github.com/yoshihik0/family-talk.git
+cd family-talk
+npm install
+npx wrangler login                    # Cloudflareアカウントでログイン
+npx wrangler d1 create family-talk    # 初回のみ。表示されたdatabase_idをwrangler.tomlに反映
+npm run deploy                        # ビルド → マイグレーション適用 → デプロイ
 ```
 
 ## 次の実装
