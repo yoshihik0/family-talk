@@ -9,5 +9,5 @@ directory = "dist/client"
 [[d1_databases]]
 binding = "DB"
 database_name = "family-talk"
-database_id = "68e170c8-faeb-4012-9494-d6fa538069af"
+database_id = "00000000-0000-4000-8000-000000000000"
 migrations_dir = "drizzle"

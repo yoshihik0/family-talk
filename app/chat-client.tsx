@@ -416,6 +416,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       return;
     }
     setConversation((current) => current ? { ...current, me: { ...current.me, metadata: { ...current.me.metadata, avatarLabel: personalAvatar, avatarColor: personalColor } }, messages: current.messages.map((message) => message.senderId === current.me.id ? { ...message, avatarLabel: personalAvatar, avatarColor: personalColor } : message) } : current);
+    setMembers((current) => current.map((member) => member.id === conversation?.me.id ? { ...member, avatarLabel: personalAvatar, avatarColor: personalColor } : member));
     setSavingPersonalProfile(false);
   }
 
@@ -565,9 +566,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
             {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <label>話す時間<select value={personalDuration} onChange={(event) => { const duration = Number(event.target.value); setPersonalDuration(duration); window.localStorage.setItem(`family-chat-voice-duration-${conversation.space.id}`, String(duration)); }}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>}
             <button className="personal-save" type="button" onClick={savePersonalProfile} disabled={savingPersonalProfile}>{savingPersonalProfile ? '保存中…' : '保存'}</button>
             <button className="personal-notification" type="button" onClick={requestNotifications} disabled={notificationStatus === 'unsupported' || notificationStatus === 'granted' || notificationStatus === 'denied'}>{notificationStatus === 'granted' ? '通知を許可済み' : notificationStatus === 'denied' ? '通知は未許可' : notificationStatus === 'unsupported' ? '通知に非対応' : '通知を許可'}</button>
-          </div>
-          <div className="device-link-setting">
-            <button type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLink())}>{deviceUrl ? '閉じる' : '別の端末でも使う'}</button>
+            <button className="device-link-toggle" type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLink())}>{deviceUrl ? '閉じる' : '別の端末でも使う'}</button>
             {deviceUrl && <div className="expandable-panel">
               <small>{new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(deviceExpiresAt))}まで</small>
               <p>{deviceUrl}</p>
