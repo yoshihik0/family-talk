@@ -85,22 +85,6 @@ CLIやGitの知識が無くても、ボタンから設置できます。ただ�
 
 設計の詳細は[docs/architecture.md](docs/architecture.md)、プロダクト全体の構想は[idea.md](idea.md)を参照してください。
 
-## ローカル起動
-
-```bash
-npm install
-npm run dev
-```
-
-確認用URLは`http://localhost:3417/`です。ポート3000は他のローカルアプリとの競合を避けるため使用しません。
-
-## 検証
-
-```bash
-npm run db:generate
-npm run build
-```
-
 ## 自分でCLIを操作する場合
 
 AIエージェントを使わず、上の「AIエージェントへの指示書」と同じ手順を自分の手で行う場合はこちらです。`npx wrangler d1 create <名前>` の出力に含まれる `database_id` を、`wrangler.toml` の `database_id`(と `name` / `database_name`)に**手で書き込む工程を忘れないでください**。ここを飛ばすと `npm run deploy` が失敗します。
