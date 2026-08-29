@@ -69,7 +69,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
             </div>
             <div className="admin-tool-row admin-tool-row-column">
               <div>
-                <strong>アップデートしてもらう</strong>
+                <strong>AIを使ってアップデート</strong>
                 <small>AIエージェントに、この文章をそのまま渡してください。インストールしたときのディレクトリで作業してもらう必要があります。</small>
                 <p className="admin-prompt-text">{UPDATE_INSTRUCTIONS_PROMPT}</p>
               </div>

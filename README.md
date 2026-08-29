@@ -99,9 +99,13 @@ npm run deploy                    # ビルド → マイグレーション適用
 
 **デプロイは自動更新されません。** 各家庭のデプロイは、設置した時点のコードの完全に独立したコピーです。このテンプレート側(`github.com/yoshihik0/family-talk`)に新しい修正が入っても、すでに設置済みのものには自動で届きません。取りに行く必要があります。
 
-今の自分のバージョンは `https://<自分のURL>/api/v1/health` の `version` で確認できます。
+今の自分のバージョンは `https://<自分のURL>/api/v1/health` の `version` で確認できます。アプリ内の「設定 → アップデートを確認」でも同じことができます。
 
-更新もAIエージェントに任せるのがおすすめです。デプロイ時に使ったのと同じディレクトリ(`git clone`したフォルダ)で、下の指示書を渡してください。
+更新方法は、最初にどちらの方法で設置したかによって変わります。
+
+### CLI(AIエージェント)で設置した場合
+
+デプロイ時に使ったのと同じディレクトリ(`git clone`したフォルダ)で、下の指示書をAIエージェントに渡してください。アプリの管理ツール(`/admin/<スペースID>`、設定パネルの「管理ツールを開く」から)からも同じ文章をコピーできます。
 
 <details>
 <summary>AIエージェントへの更新指示書(クリックで展開)</summary>
@@ -125,4 +129,13 @@ npm run deploy                    # ビルド → マイグレーション適用
 
 </details>
 
-ボタンで設置した場合は、自分のGitHub上のフォークを本家(`yoshihik0/family-talk`)と同期(Sync fork)してから、Cloudflareダッシュボードで再デプロイしてください。
+このデプロイ自体は自動更新されません。都度、この手順(またはAIへの依頼)をやり直す必要があります。
+
+### Cloudflareのボタンで設置した場合
+
+ボタンで作成したWorkerは、あなたのGitHub上のフォークとCloudflareが自動でつながっている(Git連携)ことが多く、その場合は**フォークを同期するだけで、ビルドとデプロイはCloudflareが自動で行います**。
+
+1. 自分のGitHub上のフォーク(`あなたのユーザー名/family-talk`)を本家(`yoshihik0/family-talk`)と同期する(Sync fork)。GitHubの画面上のボタンでも、AIエージェントに `gh repo sync <あなたのユーザー名>/family-talk --source yoshihik0/family-talk` を頼んでも構いません
+2. Cloudflareダッシュボード → Workers & Pages → 対象のWorker → 「Deployments」タブで新しいデプロイが始まっていることを確認する
+
+Git連携が有効かどうかは、Workerの Settings → Build(または Git)に `Connected repository` の表示があるかで確認できます。表示がない場合は連携されていないので、フォーク同期のあとにダッシュボードから手動で再デプロイ(Deployments → Retry deployment、または再度ボタンから設置)してください。
