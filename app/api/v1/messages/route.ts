@@ -120,11 +120,15 @@ export async function DELETE(request: Request) {
   if (!messageId) return Response.json({ error: 'message_id_required' }, { status: 400 });
   const access = await getSpaceAccess(session.identityId, spaceId);
   if (!access) return Response.json({ error: 'forbidden' }, { status: 403 });
+  const isAdmin = access.role === 'owner' || access.role === 'host';
   const collection = await getMessageCollection(spaceId);
   if (!collection) return Response.json({ error: 'messages_collection_not_found' }, { status: 404 });
-  const [message] = await getDb().select().from(records).where(and(eq(records.id, messageId), eq(records.collectionId, collection.id), eq(records.createdBy, session.identityId), isNull(records.deletedAt))).limit(1);
+  const filters = [eq(records.id, messageId), eq(records.collectionId, collection.id), isNull(records.deletedAt)];
+  if (!isAdmin) filters.push(eq(records.createdBy, session.identityId));
+  const [message] = await getDb().select().from(records).where(and(...filters)).limit(1);
   if (!message) return Response.json({ error: 'message_not_found' }, { status: 404 });
-  if (Date.now() - message.createdAt.getTime() > 30 * 60 * 1000) return Response.json({ error: 'message_delete_window_expired' }, { status: 403 });
+  // 管理者は自分以外の発言も、期限を気にせず削除できる。本人はこれまで通り30分以内のみ。
+  if (!isAdmin && Date.now() - message.createdAt.getTime() > 30 * 60 * 1000) return Response.json({ error: 'message_delete_window_expired' }, { status: 403 });
   const now = new Date();
   await getDb().update(records).set({ status: 'deleted', deletedAt: now, updatedAt: now }).where(eq(records.id, messageId));
   return Response.json({ deleted: messageId });

@@ -658,7 +658,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
           {conversation.messages.map((message, index) => {
             const mine = message.senderId === conversation.me.id;
             const time = new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.createdAt));
-            const canDelete = mine && Date.now() - new Date(message.createdAt).getTime() <= 30 * 60 * 1000;
+            const canDelete = canManage(conversation.me.role) || (mine && Date.now() - new Date(message.createdAt).getTime() <= 30 * 60 * 1000);
             return (
               <Fragment key={message.id}>
                 {(index === 0 || dateKey(conversation.messages[index - 1].createdAt) !== dateKey(message.createdAt)) && <p className="date-divider"><span>{dateLabel(message.createdAt)}</span></p>}
