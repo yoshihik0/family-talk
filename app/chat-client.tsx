@@ -29,8 +29,6 @@ type GroupMember = {
   avatarColor?: string;
 };
 
-type GroupPolicy = { allowText?: boolean; allowAudio?: boolean; voiceDuration?: number };
-type AppProfile = { name?: string; icon?: string; color?: string };
 
 type RecognitionEvent = { results: ArrayLike<{ 0: { transcript: string } }> };
 type Recognition = {
@@ -126,11 +124,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [groupName, setGroupName] = useState('');
-  const [appProfile, setAppProfile] = useState<AppProfile>({ name: '', icon: '', color: profileColors[0] });
-  const [policy, setPolicy] = useState<GroupPolicy>({});
-  const [savingGroup, setSavingGroup] = useState(false);
-  const [groupSaved, setGroupSaved] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
   const [inviteExpiresAt, setInviteExpiresAt] = useState('');
   const [inviteQr, setInviteQr] = useState('');
@@ -256,14 +249,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   // 管理者にだけ必要な情報なので、設定を開いたときに取りに行く。
   useEffect(() => {
     if (!settingsOpen || !conversation || !canManage(conversation.me.role)) return;
-    setGroupName(conversation.space.name);
-    const currentProfile = (conversation.space.settings.appProfile ?? {}) as AppProfile;
-    setAppProfile({
-      name: currentProfile.name ?? Array.from(conversation.space.name).slice(0, 4).join(''),
-      icon: currentProfile.icon ?? '家',
-      color: currentProfile.color ?? profileColors[0],
-    });
-    setPolicy((conversation.space.settings.policy ?? {}) as GroupPolicy);
     setConfirmRemoveId(null);
     fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(conversation.space.id)}`, { cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<{ members: GroupMember[] }> : null)
@@ -443,29 +428,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     setDeviceExpiresAt(result.expiresAt);
   }
 
-  async function saveGroupSettings() {
-    if (!conversation) return;
-    setSavingGroup(true);
-    setGroupSaved(false);
-    const trimmedName = groupName.trim();
-    const resolvedProfile = { ...appProfile, name: Array.from(trimmedName).slice(0, 4).join('') };
-    const resolvedPolicy = { ...policy, allowAudio: true };
-    const response = await fetch('/api/v1/manage/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spaceId: conversation.space.id, name: trimmedName, appProfile: resolvedProfile, policy: resolvedPolicy }),
-    }).catch(() => null);
-    setSavingGroup(false);
-    if (!response?.ok) {
-      window.alert('グループ名とアイコンを入れてください。');
-      return;
-    }
-    setGroupSaved(true);
-    setAppProfile(resolvedProfile);
-    setPolicy(resolvedPolicy);
-    setConversation((current) => current ? { ...current, space: { ...current.space, name: trimmedName, settings: { ...current.space.settings, appProfile: resolvedProfile, policy: resolvedPolicy } } } : current);
-  }
-
   async function createInvite() {
     if (!conversation) return;
     const response = await fetch('/api/v1/manage/invites', {
@@ -485,11 +447,8 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   async function removeMember(member: GroupMember) {
     if (!conversation) return;
     setConfirmRemoveId(null);
-    const response = await fetch('/api/v1/manage/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spaceId: conversation.space.id, removeMemberId: member.id }),
-    }).catch(() => null);
+    const params = new URLSearchParams({ spaceId: conversation.space.id, memberId: member.id });
+    const response = await fetch(`/api/v1/manage/members?${params.toString()}`, { method: 'DELETE' }).catch(() => null);
     if (!response?.ok) {
       window.alert('はずせませんでした。');
       return;
@@ -618,15 +577,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
           </div>
 
           {canManage(conversation.me.role) && <>
-            <div className="group-setting">
-              <strong>グループの設定</strong>
-              <label>グループ名<input className="wide-input" value={groupName} maxLength={40} onChange={(event) => { setGroupName(event.target.value); setGroupSaved(false); }} /></label>
-              <label>アイコン<input value={appProfile.icon ?? ''} onChange={(event) => { setAppProfile((current) => ({ ...current, icon: event.target.value })); setGroupSaved(false); }} /></label>
-              <div className="personal-color-options" aria-label="アプリの色">{profileColors.map((color) => <button key={color} type="button" aria-label={color} className={color === appProfile.color ? 'is-selected' : ''} style={{ background: color }} onClick={() => { setAppProfile((current) => ({ ...current, color })); setGroupSaved(false); }} />)}</div>
-              <label>話す時間<select value={policy.voiceDuration ?? 30} onChange={(event) => { setPolicy((current) => ({ ...current, voiceDuration: Number(event.target.value) })); setGroupSaved(false); }}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>
-              <button className="personal-save" type="button" onClick={saveGroupSettings} disabled={savingGroup}>{savingGroup ? '保存中…' : '保存'}</button>
-              {groupSaved && <small className="save-note">保存しました</small>}
-            </div>
             <div className="member-setting">
               <div className="member-setting-header">
                 <strong>メンバー</strong>
