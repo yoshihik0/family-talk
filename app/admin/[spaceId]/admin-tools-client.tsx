@@ -63,7 +63,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
           </div>
         )}
 
-        <footer className="admin-footer"><a href="https://yoshihiko.com" target="_blank" rel="noreferrer">yoshihiko.com</a></footer>
+        <footer className="admin-footer">Produced by <a href="https://yoshihiko.com" target="_blank" rel="noreferrer">yoshihiko.com</a></footer>
       </section>
     </main>
   );
