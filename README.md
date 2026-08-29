@@ -38,7 +38,9 @@
 2. git clone https://github.com/yoshihik0/family-talk.git を実行し、そのディレクトリに移動する
 3. npm install を実行する
 4. npx wrangler whoami でログイン済みか確認する。ログインしていなければ
-   npx wrangler login を実行してもらうよう私に伝えて、完了を待つ
+   npx wrangler login を実行する(ブラウザが開いて認可画面が出るので、
+   相手に「許可」を押してもらい、ターミナルに戻ってくるまで待つ。
+   Cloudflareのダッシュボードに普段ログインしているだけでは不十分)
 5. npx wrangler d1 create <決めた名前> を実行する
    (すでに同名のデータベースがあれば、別の名前を私に確認する)
 6. 出力された database_id をコピーし、wrangler.toml の
