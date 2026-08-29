@@ -94,3 +94,35 @@ npx wrangler login                # Cloudflareアカウントでログイン
 npx wrangler d1 create <好きな名前>  # 表示された database_id を wrangler.toml に書き込む
 npm run deploy                    # ビルド → マイグレーション適用 → デプロイ
 ```
+
+## アップデートする
+
+**デプロイは自動更新されません。** 各家庭のデプロイは、設置した時点のコードの完全に独立したコピーです。このテンプレート側(`github.com/yoshihik0/family-talk`)に新しい修正が入っても、すでに設置済みのものには自動で届きません。取りに行く必要があります。
+
+今の自分のバージョンは `https://<自分のURL>/api/v1/health` の `version` で確認できます。
+
+更新もAIエージェントに任せるのがおすすめです。デプロイ時に使ったのと同じディレクトリ(`git clone`したフォルダ)で、下の指示書を渡してください。
+
+<details>
+<summary>AIエージェントへの更新指示書(クリックで展開)</summary>
+
+```
+このデプロイを最新版に更新してください。
+
+1. 前回 git clone したディレクトリで作業する(見つからなければ私に聞く)
+2. 現在の wrangler.toml の name と database_id の値を控えておく
+3. git fetch origin してから git log HEAD..origin/main --oneline で
+   新しいコミットがあるか確認する。無ければ「最新です」と伝えて終了する
+4. あれば、git stash で今の wrangler.toml の変更を退避してから
+   git pull origin main を実行する
+5. git stash pop でローカルの変更を戻す。
+   競合が出たら、控えておいた name と database_id を wrangler.toml に書き戻す
+6. npm install を実行する
+7. npm run deploy を実行する
+8. デプロイ後、/api/v1/health の version が上がっていることを確認する
+9. 手順3で見つかった変更点を、日本語で簡潔に私に説明してください
+```
+
+</details>
+
+ボタンで設置した場合は、自分のGitHub上のフォークを本家(`yoshihik0/family-talk`)と同期(Sync fork)してから、Cloudflareダッシュボードで再デプロイしてください。
