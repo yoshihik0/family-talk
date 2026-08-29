@@ -131,14 +131,12 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 
 .text-size-large {
   --message-font-size: 19px;
-  --title-font-size: 27px;
   --input-font-size: 19px;
   --read-icon-offset: 11px;
 }
 
 .text-size-xlarge {
   --message-font-size: 22px;
-  --title-font-size: 30px;
   --input-font-size: 21px;
   --read-icon-offset: 13px;
 }

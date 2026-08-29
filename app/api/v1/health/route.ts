@@ -1,6 +1,6 @@
 export async function GET() {
   return Response.json({
-    name: 'personal-data-hub',
+    name: 'family-talk',
     status: 'ok',
     apiVersion: 'v1',
     schemaVersion: 1,
