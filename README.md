@@ -105,7 +105,7 @@ npm run deploy                    # ビルド → マイグレーション適用
 
 ### CLI(AIエージェント)で設置した場合
 
-デプロイ時に使ったのと同じディレクトリ(`git clone`したフォルダ)で、下の指示書をAIエージェントに渡してください。アプリの管理ツール(`/admin/<スペースID>`、設定パネルの「管理ツールを開く」から)からも同じ文章をコピーできます。
+デプロイ時に使ったのと同じディレクトリ(`git clone`したフォルダ)で、下の指示書をAIエージェントに渡してください。アプリの設定パネルの「管理ツールを開く」からも同じ文章をコピーできます。
 
 <details>
 <summary>AIエージェントへの更新指示書(クリックで展開)</summary>
@@ -129,13 +129,37 @@ npm run deploy                    # ビルド → マイグレーション適用
 
 </details>
 
-このデプロイ自体は自動更新されません。都度、この手順(またはAIへの依頼)をやり直す必要があります。
-
 ### Cloudflareのボタンで設置した場合
 
-ボタンで作成したWorkerは、あなたのGitHub上のフォークとCloudflareが自動でつながっている(Git連携)ことが多く、その場合は**フォークを同期するだけで、ビルドとデプロイはCloudflareが自動で行います**。
+Cloudflareのボタンで作成したWorkerは、あなたのGitHub上のフォークとCloudflareが自動でつながっている(Git連携)ことが多く、その場合は**フォークを同期するだけで、ビルドとデプロイはCloudflareが自動で行います**。
 
 1. 自分のGitHub上のフォーク(`あなたのユーザー名/family-talk`)を本家(`yoshihik0/family-talk`)と同期する(Sync fork)。GitHubの画面上のボタンでも、AIエージェントに `gh repo sync <あなたのユーザー名>/family-talk --source yoshihik0/family-talk` を頼んでも構いません
 2. Cloudflareダッシュボード → Workers & Pages → 対象のWorker → 「Deployments」タブで新しいデプロイが始まっていることを確認する
 
 Git連携が有効かどうかは、Workerの Settings → Build(または Git)に `Connected repository` の表示があるかで確認できます。表示がない場合は連携されていないので、フォーク同期のあとにダッシュボードから手動で再デプロイ(Deployments → Retry deployment、または再度ボタンから設置)してください。
+
+最後に、この作業もAIに指示して行うことができます。
+
+<details>
+<summary>AIエージェントへの更新指示書(クリックで展開)</summary>
+
+```
+family-talkのデプロイを最新版に更新してください。これはCloudflareの
+「Deploy to Cloudflare」ボタンで設置したものです。
+
+1. gh repo sync <あなたのGitHubユーザー名>/family-talk --source yoshihik0/family-talk
+   を実行して、フォークを本家の最新コミットに同期する
+2. 同期した結果、新しいコミットが取り込まれたかを教えてください
+   (差分が無ければ「最新です」と伝えて終了してください)
+3. このWorkerがCloudflareとGit連携されているか分からない場合は、
+   Cloudflareダッシュボード → Workers & Pages → 対象のWorker →
+   Settings → Build(または Git)に Connected repository の表示が
+   あるか確認するよう私に伝えてください
+4. 連携されていれば、Cloudflareが自動でビルド・デプロイします。
+   Deployments タブで新しいデプロイが始まっているか確認してください
+5. 連携されていない、または自動デプロイが始まらない場合は、
+   ダッシュボードから手動で再デプロイ(Deployments → Retry deployment)
+   するよう私に伝えてください
+```
+
+</details>
