@@ -313,5 +313,8 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 .admin-tool-row small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .admin-tool-row button { flex: 0 0 auto; min-height: 40px; padding: 8px 16px; color: white; background: var(--context-primary); border: 0; border-radius: 10px; font-size: 13px; font-weight: 800; }
 .admin-tool-row button:disabled { opacity: .6; }
-.admin-footer { margin-top: 28px; text-align: center; }
-.admin-footer a { color: var(--muted); font-size: 12px; text-decoration: none; }
+.admin-tool-row-column { flex-direction: column; align-items: flex-start; }
+.admin-tool-row-column button { align-self: flex-end; }
+.admin-prompt-text { margin: 10px 0 0; padding: 12px; color: var(--ink); background: var(--context-pale); border-radius: 10px; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.admin-footer { margin-top: 28px; color: var(--muted); font-size: 12px; text-align: center; }
+.admin-footer a { color: var(--muted); font-size: inherit; text-decoration: none; }

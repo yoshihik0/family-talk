@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { UPDATE_INSTRUCTIONS_PROMPT } from '@/lib/text/update-instructions';
 
 export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [spaceName, setSpaceName] = useState('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'forbidden'>('loading');
   const [downloading, setDownloading] = useState(false);
+  const [promptCopied, setPromptCopied] = useState(false);
 
   useEffect(() => {
     fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(spaceId)}`, { cache: 'no-store' })
@@ -42,6 +44,11 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     URL.revokeObjectURL(url);
   }
 
+  async function copyPrompt() {
+    await navigator.clipboard.writeText(UPDATE_INSTRUCTIONS_PROMPT).catch(() => undefined);
+    setPromptCopied(true);
+  }
+
   return (
     <main className="admin-shell">
       <section className="admin-card">
@@ -59,6 +66,14 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                 <small>削除済みの発言も含めて、全件をCSVファイルで保存します。</small>
               </div>
               <button type="button" onClick={downloadLog} disabled={downloading}>{downloading ? '準備中…' : 'ダウンロード'}</button>
+            </div>
+            <div className="admin-tool-row admin-tool-row-column">
+              <div>
+                <strong>アップデートしてもらう</strong>
+                <small>AIエージェントに、この文章をそのまま渡してください。インストールしたときのディレクトリで作業してもらう必要があります。</small>
+                <p className="admin-prompt-text">{UPDATE_INSTRUCTIONS_PROMPT}</p>
+              </div>
+              <button type="button" onClick={copyPrompt}>{promptCopied ? 'コピーしました' : 'コピー'}</button>
             </div>
           </div>
         )}

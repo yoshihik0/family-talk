@@ -3,6 +3,7 @@
 import { Fragment, FormEvent, useEffect, useRef, useState, type CSSProperties } from 'react';
 import QRCode from 'qrcode';
 import { enableNotifications, getGroupServiceWorker, getNotificationState, groupAppPath, type NotificationState } from '@/lib/push/client';
+import { UPDATE_INSTRUCTIONS_PROMPT } from '@/lib/text/update-instructions';
 
 type Message = {
   id: string;
@@ -485,8 +486,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   }
 
   async function copyUpdateInstructions() {
-    const text = 'family-talkの更新を確認してください。前回セットアップしたディレクトリで、git fetch origin してから git log HEAD..origin/main --oneline で新しいコミットがあるか確認し、あれば wrangler.toml の name と database_id を退避しつつ git pull → npm install → npm run deploy を実行してください。手順の詳細は https://github.com/yoshihik0/family-talk#アップデートする を参照してください。';
-    await navigator.clipboard.writeText(text).catch(() => undefined);
+    await navigator.clipboard.writeText(UPDATE_INSTRUCTIONS_PROMPT).catch(() => undefined);
     setUpdateCopied(true);
   }
 
