@@ -124,6 +124,10 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState('');
+  const [updateCheck, setUpdateCheck] = useState<'idle' | 'checking' | 'latest' | 'available' | 'error'>('idle');
+  const [latestVersion, setLatestVersion] = useState('');
+  const [updateCopied, setUpdateCopied] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
   const [inviteExpiresAt, setInviteExpiresAt] = useState('');
   const [inviteQr, setInviteQr] = useState('');
@@ -254,6 +258,12 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       .then((response) => response.ok ? response.json() as Promise<{ members: GroupMember[] }> : null)
       .then((data) => setMembers(data?.members ?? []))
       .catch(() => undefined);
+    fetch('/api/v1/health', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() as Promise<{ version: string }> : null)
+      .then((data) => { if (data) setAppVersion(data.version); })
+      .catch(() => undefined);
+    setUpdateCheck('idle');
+    setUpdateCopied(false);
   }, [settingsOpen, conversation?.space.id]);
 
   useEffect(() => {
@@ -457,6 +467,29 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     setMembers((current) => current.filter((entry) => entry.id !== member.id));
   }
 
+  async function checkForUpdate() {
+    setUpdateCheck('checking');
+    const response = await fetch('https://raw.githubusercontent.com/yoshihik0/family-talk/main/package.json', { cache: 'no-store' }).catch(() => null);
+    if (!response?.ok) {
+      setUpdateCheck('error');
+      return;
+    }
+    const data = await response.json().catch(() => null) as { version?: unknown } | null;
+    const version = typeof data?.version === 'string' ? data.version : '';
+    if (!version) {
+      setUpdateCheck('error');
+      return;
+    }
+    setLatestVersion(version);
+    setUpdateCheck(version !== appVersion ? 'available' : 'latest');
+  }
+
+  async function copyUpdateInstructions() {
+    const text = 'family-talkの更新を確認してください。前回セットアップしたディレクトリで、git fetch origin してから git log HEAD..origin/main --oneline で新しいコミットがあるか確認し、あれば wrangler.toml の name と database_id を退避しつつ git pull → npm install → npm run deploy を実行してください。手順の詳細は https://github.com/yoshihik0/family-talk#アップデートする を参照してください。';
+    await navigator.clipboard.writeText(text).catch(() => undefined);
+    setUpdateCopied(true);
+  }
+
   async function deleteMessage(messageId: string) {
     if (!conversation) return;
     setConfirmDeleteId(null);
@@ -602,6 +635,20 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
                   </li>
                 ))}
               </ul>
+            </div>
+            <div className="admin-links-setting">
+              <a className="admin-tool-link" href={`/admin/${encodeURIComponent(conversation.space.id)}`} target="_blank" rel="noreferrer">管理ツールを開く</a>
+              <div className="version-row">
+                <span>バージョン {appVersion || '…'}</span>
+                {updateCheck !== 'available' && <button type="button" onClick={checkForUpdate} disabled={updateCheck === 'checking'}>{updateCheck === 'checking' ? '確認中…' : 'アップデートを確認'}</button>}
+              </div>
+              {updateCheck === 'latest' && <small className="save-note">最新版です</small>}
+              {updateCheck === 'error' && <small>確認できませんでした。しばらくしてからもう一度お試しください。</small>}
+              {updateCheck === 'available' && <div className="expandable-panel">
+                <small>新しいバージョンがあります({latestVersion})。下の手順をAIエージェントに渡してください。</small>
+                <button type="button" onClick={copyUpdateInstructions}>{updateCopied ? 'コピーしました' : '更新手順をコピー'}</button>
+              </div>}
+              <small className="admin-credit"><a href="https://yoshihiko.com" target="_blank" rel="noreferrer">yoshihiko.com</a></small>
             </div>
           </>}
         </section>}

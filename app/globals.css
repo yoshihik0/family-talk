@@ -216,6 +216,12 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .member-setting .member-role { color: var(--muted); font-size: 11px; font-weight: 800; }
 .member-setting button { padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
 .member-confirm { display: flex; flex: 0 0 auto; gap: 6px; }
+.admin-links-setting { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.admin-tool-link { align-self: flex-start; padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; }
+.version-row { display: flex; align-items: center; justify-content: space-between; gap: 9px; font-size: 12px; color: var(--muted); }
+.version-row button { padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
+.admin-credit { margin-top: 4px; text-align: center; }
+.admin-credit a { color: var(--muted); text-decoration: none; }
 button.confirm-danger { color: #a1483f; background: #f6e6e4; border-color: #e3bcb7; }
 button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0; }
 .personal-settings-close { position: absolute; top: 7px; right: 10px; width: 28px; height: 28px; padding: 0; color: var(--muted); background: transparent; border: 0; font-size: 20px; }
@@ -291,3 +297,17 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 .join-card input { width: 100%; padding: 13px 14px; border: 1px solid #bdcac2; border-radius: 11px; font-size: 17px; }
 .join-card form > button, .join-card > button { width: 100%; min-height: 50px; margin-top: 16px; color: white; background: var(--context-primary); border: 0; border-radius: 12px; font-size: 16px; font-weight: 800; }
 .join-error { color: #a03939; font-size: 13px; line-height: 1.6; }
+
+.admin-shell { display: grid; min-height: 100dvh; place-items: start center; padding: 24px 16px; background: var(--context-pale); }
+.admin-card { width: min(100%, 560px); margin-top: 6dvh; padding: 34px; background: var(--paper); border: 1px solid var(--line); border-radius: 24px; box-shadow: 0 24px 60px rgba(32, 67, 49, .12); }
+.admin-eyebrow { margin: 0 0 5px; color: var(--context-primary); font-size: 13px; font-weight: 800; }
+.admin-card h1 { margin: 0 0 20px; font-size: 26px; }
+.admin-state { color: var(--muted); }
+.admin-tools { display: flex; flex-direction: column; gap: 14px; }
+.admin-tool-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; }
+.admin-tool-row strong { display: block; font-size: 14px; }
+.admin-tool-row small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.admin-tool-row button { flex: 0 0 auto; min-height: 40px; padding: 8px 16px; color: white; background: var(--context-primary); border: 0; border-radius: 10px; font-size: 13px; font-weight: 800; }
+.admin-tool-row button:disabled { opacity: .6; }
+.admin-footer { margin-top: 28px; text-align: center; }
+.admin-footer a { color: var(--muted); font-size: 12px; text-decoration: none; }
