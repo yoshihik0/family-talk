@@ -1,6 +1,6 @@
 // package.json の version と手で合わせておく(Workers環境でのJSON importの
 // バンドル差異を避けるため、ここでは定数として持つ)。
-const APP_VERSION = '0.4.5';
+const APP_VERSION = '0.4.6';
 
 export async function GET() {
   return Response.json({

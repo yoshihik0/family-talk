@@ -148,7 +148,6 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .date-divider { display: flex; align-items: center; gap: 12px; margin: 0; color: var(--muted); font-size: 12px; }
 .date-divider::before, .date-divider::after { content: ''; height: 1px; flex: 1; background: var(--line); }
 .message { width: min(86%, 520px); }
-.message-mine { align-self: flex-end; }
 .message-meta { display: flex; align-items: baseline; gap: 8px; margin: 0 7px 6px; }
 .message-avatar { display: inline-grid; width: 24px; height: 24px; place-items: center; align-self: center; color: white; border-radius: 8px; font-size: 12px; font-weight: 800; }
 .message-meta strong { font-size: 14px; }
@@ -157,7 +156,6 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .message-confirm { display: flex; gap: 5px; margin-left: 1px; }
 .message-confirm button { padding: 2px 7px; border: 1px solid; border-radius: 6px; font-size: 11px; font-weight: 800; }
 .message-content { display: flex; align-items: flex-end; gap: 8px; }
-.message-mine .message-content { flex-direction: row-reverse; }
 .message-bubble {
   flex: 1;
   min-height: 58px;
@@ -167,7 +165,6 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 }
 
 .message-bubble p { margin: 0; font-size: var(--message-font-size); line-height: 1.75; }
-.message-mine .message-bubble { color: #183b2b; background: #dcecdf; border-radius: 18px 6px 18px 18px; }
 
 .read-aloud {
   display: grid;
