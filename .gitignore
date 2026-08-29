@@ -39,3 +39,6 @@ next-env.d.ts
 
 # typescript incremental build cache
 tsconfig.tsbuildinfo
+
+# personal multi-instance deploy config (not part of the public template)
+wrangler.personal.toml
