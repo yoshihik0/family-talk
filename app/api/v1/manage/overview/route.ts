@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { identities, spaceMembers, type JsonObject } from '@/db/schema';
+import { identities, spaceMembers, spaces, type JsonObject } from '@/db/schema';
 import { requireHostForSpace } from '@/lib/auth/authorize';
 import { getDeviceSession } from '@/lib/auth/session';
 
@@ -11,6 +11,9 @@ export async function GET(request: Request) {
   const spaceId = requestedSpaceId || session.spaceId;
   const auth = await requireHostForSpace(request, spaceId);
   if ('error' in auth) return auth.error;
+
+  const [space] = await getDb().select({ name: spaces.name, settings: spaces.settings }).from(spaces).where(eq(spaces.id, spaceId)).limit(1);
+  const appProfile = (space?.settings as JsonObject | undefined)?.appProfile as JsonObject | undefined;
 
   const members = await getDb()
     .select({
@@ -29,6 +32,12 @@ export async function GET(request: Request) {
   members.sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0));
 
   return Response.json({
+    space: {
+      id: spaceId,
+      name: space?.name ?? '',
+      icon: typeof appProfile?.icon === 'string' ? appProfile.icon : '🏡',
+      color: typeof appProfile?.color === 'string' ? appProfile.color : '#3f7d61',
+    },
     members: members.map(({ metadata, ...member }) => ({
       ...member,
       avatarLabel: typeof (metadata as JsonObject)?.avatarLabel === 'string' ? (metadata as JsonObject).avatarLabel : undefined,

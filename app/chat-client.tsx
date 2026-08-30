@@ -52,7 +52,7 @@ const textSizeLabels: Record<TextSize, string> = {
   large: '大',
   xlarge: '特大',
 };
-const profileColors = ['#3f7d61', '#c1442e', '#426f9a', '#8b5d9b', '#c48735', '#5e7185'];
+import { PROFILE_COLORS as profileColors } from '@/lib/theme/colors';
 
 // 設定の入口は誰でも同じ歯車ひとつ。管理できる人にだけ、その中身が深くなる。
 function canManage(role: string) {
@@ -112,6 +112,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const [listening, setListening] = useState(false);
   const [textSize, setTextSize] = useState<TextSize>('standard');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [personalName, setPersonalName] = useState('');
   const [personalAvatar, setPersonalAvatar] = useState('');
   const [personalColor, setPersonalColor] = useState(profileColors[0]);
   const [personalDuration, setPersonalDuration] = useState(0);
@@ -144,6 +145,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     fetchConversation(fixedSpaceId)
       .then((data) => {
         setConversation(data);
+        setPersonalName(data.me.displayName);
         setPersonalAvatar(data.me.metadata?.avatarLabel ?? data.me.displayName.slice(0, 1));
         setPersonalColor(data.me.metadata?.avatarColor ?? profileColors[0]);
         const savedDuration = Number(window.localStorage.getItem(`family-chat-voice-duration-${data.space.id}`));
@@ -419,15 +421,20 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   }
 
   async function savePersonalProfile() {
-    setSavingPersonalProfile(true);
-    const response = await fetch('/api/v1/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId: conversation?.space.id, avatarLabel: personalAvatar, avatarColor: personalColor }) }).catch(() => null);
-    if (!response?.ok) {
-      setSavingPersonalProfile(false);
-      window.alert('アイコンは1つの文字で設定してください。');
+    const name = personalName.trim();
+    if (!name) {
+      window.alert('名前を入力してください。');
       return;
     }
-    setConversation((current) => current ? { ...current, me: { ...current.me, metadata: { ...current.me.metadata, avatarLabel: personalAvatar, avatarColor: personalColor } }, messages: current.messages.map((message) => message.senderId === current.me.id ? { ...message, avatarLabel: personalAvatar, avatarColor: personalColor } : message) } : current);
-    setMembers((current) => current.map((member) => member.id === conversation?.me.id ? { ...member, avatarLabel: personalAvatar, avatarColor: personalColor } : member));
+    setSavingPersonalProfile(true);
+    const response = await fetch('/api/v1/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId: conversation?.space.id, displayName: name, avatarLabel: personalAvatar, avatarColor: personalColor }) }).catch(() => null);
+    if (!response?.ok) {
+      setSavingPersonalProfile(false);
+      window.alert('名前は40文字以内、アイコンは1つの文字で設定してください。');
+      return;
+    }
+    setConversation((current) => current ? { ...current, me: { ...current.me, displayName: name, metadata: { ...current.me.metadata, avatarLabel: personalAvatar, avatarColor: personalColor } }, messages: current.messages.map((message) => message.senderId === current.me.id ? { ...message, senderName: name, avatarLabel: personalAvatar, avatarColor: personalColor } : message) } : current);
+    setMembers((current) => current.map((member) => member.id === conversation?.me.id ? { ...member, displayName: name, avatarLabel: personalAvatar, avatarColor: personalColor } : member));
     setSavingPersonalProfile(false);
   }
 
@@ -524,7 +531,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       <main className="app-shell">
         <section className="state-card setup-card">
           <h1>はじめまして</h1>
-          <p>あなたの名前と、家族グループの名前を決めてください。アイコンと色は、あとから変えてもホーム画面のアイコンには反映されにくいので、ここで決めておくのがおすすめです。</p>
+          <p>あなたの名前と、家族グループの名前を決めてください。</p>
           <form onSubmit={submitSetup}>
             <label>あなたの名前<input value={setupOwnerName} maxLength={40} onChange={(event) => setSetupOwnerName(event.target.value)} placeholder="例：お母さん" /></label>
             <label>グループの名前<input value={setupGroupName} maxLength={40} onChange={(event) => setSetupGroupName(event.target.value)} placeholder="例：実家" /></label>
@@ -559,6 +566,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     return <main className="app-shell"><section className="state-card" role="status">家族のおしゃべりを開いています…</section></main>;
   }
 
+  const appProfile = (conversation.space.settings.appProfile ?? {}) as { icon?: string };
   const theme = (conversation.space.settings.theme ?? {}) as {
     primaryColor?: string;
     accentColor?: string;
@@ -578,7 +586,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
         <header className="conversation-header">
           <div>
             <p className="eyebrow">家族のおしゃべり</p>
-            <h1 id="conversation-title">{conversation.space.name}</h1>
+            <h1 id="conversation-title">{appProfile.icon && <span className="header-icon" aria-hidden="true">{appProfile.icon}</span>}{conversation.space.name}</h1>
           </div>
           <div className="text-size-control" role="group" aria-label="文字の大きさ">
             {(Object.keys(textSizeLabels) as TextSize[]).map((size) => (
@@ -600,6 +608,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
           <button className="personal-settings-close" type="button" aria-label="閉じる" onClick={() => setSettingsOpen(false)}>×</button>
           <div className="personal-settings-main">
             <strong>自分の設定</strong>
+            <label className="full-row">名前<input className="wide-input" value={personalName} maxLength={40} onChange={(event) => setPersonalName(event.target.value)} /></label>
             <div className="setup-icon-preview" aria-hidden="true" style={{ background: personalColor }}>{personalAvatar || conversation.me.displayName.slice(0, 1)}</div>
             <label>アイコン<input value={personalAvatar} maxLength={20} onChange={(event) => setPersonalAvatar(event.target.value)} /></label>
             <div className="personal-color-options" aria-label="自分の色">

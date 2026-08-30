@@ -101,6 +101,7 @@ button:disabled { cursor: default; opacity: 0.55; }
 
 .eyebrow { margin: 0 0 2px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; }
 h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
+.header-icon { margin-right: 0.3em; font-size: 1em; }
 
 .text-size-control {
   display: flex;
@@ -206,7 +207,9 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .personal-settings-main > strong { width: 100%; font-size: 13px; font-weight: 800; }
 .member-setting-header > strong { font-size: 13px; font-weight: 800; }
 .personal-settings-main label { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; }
+.personal-settings-main label.full-row { flex-basis: 100%; }
 .personal-settings-main input, .personal-settings-main select { width: 62px; padding: 6px; text-align: center; border: 1px solid #cbd8d0; border-radius: 7px; background: white; }
+.wide-input { width: 140px !important; text-align: left !important; }
 .member-setting-header { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 9px; }
 .member-setting ul { display: flex; width: 100%; flex-direction: column; gap: 7px; margin: 0; padding: 0; list-style: none; }
 .member-setting li { display: flex; align-items: center; gap: 9px; font-size: 13px; }

@@ -2,26 +2,49 @@
 
 import { useEffect, useState } from 'react';
 import { UPDATE_INSTRUCTIONS_PROMPT } from '@/lib/text/update-instructions';
+import { PROFILE_COLORS } from '@/lib/theme/colors';
 
 export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
-  const [spaceName, setSpaceName] = useState('');
   const [status, setStatus] = useState<'loading' | 'ready' | 'forbidden'>('loading');
   const [downloading, setDownloading] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
+
+  const [groupName, setGroupName] = useState('');
+  const [groupIcon, setGroupIcon] = useState('');
+  const [groupColor, setGroupColor] = useState(PROFILE_COLORS[0]);
+  const [savingGroup, setSavingGroup] = useState(false);
 
   useEffect(() => {
     fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(spaceId)}`, { cache: 'no-store' })
       .then((response) => {
         if (!response.ok) { setStatus('forbidden'); return null; }
-        return response.json() as Promise<{ members: Array<{ id: string }> }>;
+        return response.json() as Promise<{ space: { name: string; icon: string; color: string }; members: Array<{ id: string }> }>;
       })
-      .then(() => setStatus('ready'))
+      .then((data) => {
+        if (!data) return;
+        setGroupName(data.space.name);
+        setGroupIcon(data.space.icon);
+        setGroupColor(data.space.color);
+        setStatus('ready');
+      })
       .catch(() => setStatus('forbidden'));
-    fetch(`/api/v1/app-manifest?spaceId=${encodeURIComponent(spaceId)}`, { cache: 'no-store' })
-      .then((response) => response.ok ? response.json() as Promise<{ name: string }> : null)
-      .then((data) => { if (data) setSpaceName(data.name); })
-      .catch(() => undefined);
   }, [spaceId]);
+
+  async function saveGroupProfile() {
+    const name = groupName.trim();
+    if (!name) {
+      window.alert('グループの名前を入力してください。');
+      return;
+    }
+    setSavingGroup(true);
+    const response = await fetch('/api/v1/manage/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId, name, icon: groupIcon, color: groupColor }) }).catch(() => null);
+    setSavingGroup(false);
+    if (!response?.ok) {
+      window.alert('グループ名は40文字以内、アイコンは1つの文字で設定してください。');
+      return;
+    }
+    setGroupName(name);
+  }
 
   async function downloadLog() {
     setDownloading(true);
@@ -53,13 +76,26 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     <main className="admin-shell">
       <section className="admin-card">
         <p className="admin-eyebrow">管理ツール</p>
-        <h1>{spaceName || '家族のおしゃべり'}</h1>
+        <h1>{groupName || '家族のおしゃべり'}</h1>
 
         {status === 'loading' && <p className="admin-state">確認しています…</p>}
         {status === 'forbidden' && <p className="admin-state" role="alert">この操作には管理者権限が必要です。会話画面からログインし直してください。</p>}
 
         {status === 'ready' && (
           <div className="admin-tools">
+            <div className="admin-tool-row admin-tool-row-column">
+              <strong>グループの設定</strong>
+              <div className="personal-settings-main">
+                <label className="full-row">グループの名前<input className="wide-input" value={groupName} maxLength={40} onChange={(event) => setGroupName(event.target.value)} /></label>
+                <div className="setup-icon-preview" aria-hidden="true" style={{ background: groupColor }}>{groupIcon || groupName.slice(0, 1)}</div>
+                <label>アイコン<input value={groupIcon} maxLength={8} onChange={(event) => setGroupIcon(event.target.value)} /></label>
+                <div className="personal-color-options" aria-label="グループの色">
+                  {PROFILE_COLORS.map((color) => <button key={color} type="button" aria-label={color} className={color === groupColor ? 'is-selected' : ''} style={{ background: color }} onClick={() => setGroupColor(color)} />)}
+                  <span className="color-picker-wrap"><input type="color" aria-label="色を自由に選ぶ" value={groupColor} onChange={(event) => setGroupColor(event.target.value)} /></span>
+                </div>
+                <button className="personal-save" type="button" onClick={saveGroupProfile} disabled={savingGroup}>{savingGroup ? '保存中…' : '保存'}</button>
+              </div>
+            </div>
             <div className="admin-tool-row">
               <div>
                 <strong>会話ログをダウンロード</strong>
