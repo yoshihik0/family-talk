@@ -607,18 +607,29 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
         {settingsOpen && <section className="settings-panel" aria-label="設定">
           <button className="personal-settings-close" type="button" aria-label="閉じる" onClick={() => setSettingsOpen(false)}>×</button>
           <div className="personal-settings-main">
-            <strong>自分の設定</strong>
-            <label className="full-row">名前<input className="wide-input" value={personalName} maxLength={40} onChange={(event) => setPersonalName(event.target.value)} /></label>
-            <div className="setup-icon-preview" aria-hidden="true" style={{ background: personalColor }}>{personalAvatar || conversation.me.displayName.slice(0, 1)}</div>
-            <label>アイコン<input value={personalAvatar} maxLength={20} onChange={(event) => setPersonalAvatar(event.target.value)} /></label>
-            <div className="personal-color-options" aria-label="自分の色">
-              {profileColors.map((color) => <button key={color} type="button" aria-label={color} className={color === personalColor ? 'is-selected' : ''} style={{ background: color }} onClick={() => setPersonalColor(color)} />)}
-              <span className="color-picker-wrap"><input type="color" aria-label="色を自由に選ぶ" value={personalColor} onChange={(event) => setPersonalColor(event.target.value)} /></span>
+            <div className="settings-heading">
+              <div className="setup-icon-preview" aria-hidden="true" style={{ background: personalColor }}>{personalAvatar || conversation.me.displayName.slice(0, 1)}</div>
+              <strong>自分の設定</strong>
             </div>
-            {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <label>話す時間<select value={personalDuration} onChange={(event) => { const duration = Number(event.target.value); setPersonalDuration(duration); window.localStorage.setItem(`family-chat-voice-duration-${conversation.space.id}`, String(duration)); }}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>}
-            <button className="personal-save" type="button" onClick={savePersonalProfile} disabled={savingPersonalProfile}>{savingPersonalProfile ? '保存中…' : '保存'}</button>
-            <button className="personal-notification" type="button" onClick={requestNotifications} disabled={notificationStatus === 'unsupported' || notificationStatus === 'granted' || notificationStatus === 'denied'}>{notificationStatus === 'granted' ? '通知を許可済み' : notificationStatus === 'denied' ? '通知は未許可' : notificationStatus === 'unsupported' ? '通知に非対応' : '通知を許可'}</button>
-            <button className="device-link-toggle" type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLink())}>{deviceUrl ? '閉じる' : '別の端末でも使う'}</button>
+            <div className="settings-row">
+              <label>名前<input className="wide-input" value={personalName} maxLength={40} onChange={(event) => setPersonalName(event.target.value)} /></label>
+            </div>
+            <div className="settings-row">
+              <label>アイコン<input value={personalAvatar} maxLength={20} onChange={(event) => setPersonalAvatar(event.target.value)} /></label>
+              <div className="personal-color-options" aria-label="自分の色">
+                {profileColors.map((color) => <button key={color} type="button" aria-label={color} className={color === personalColor ? 'is-selected' : ''} style={{ background: color }} onClick={() => setPersonalColor(color)} />)}
+                <span className="color-picker-wrap"><input type="color" aria-label="色を自由に選ぶ" value={personalColor} onChange={(event) => setPersonalColor(event.target.value)} /></span>
+              </div>
+            </div>
+            <div className="settings-row">
+              {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <label>話す時間<select value={personalDuration} onChange={(event) => { const duration = Number(event.target.value); setPersonalDuration(duration); window.localStorage.setItem(`family-chat-voice-duration-${conversation.space.id}`, String(duration)); }}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>}
+              <button className="personal-save" type="button" onClick={savePersonalProfile} disabled={savingPersonalProfile}>{savingPersonalProfile ? '保存中…' : '保存'}</button>
+            </div>
+            <hr className="settings-divider" />
+            <div className="settings-row settings-row-right">
+              <button className="personal-notification" type="button" onClick={requestNotifications} disabled={notificationStatus === 'unsupported' || notificationStatus === 'granted' || notificationStatus === 'denied'}>{notificationStatus === 'granted' ? '通知を許可済み' : notificationStatus === 'denied' ? '通知は未許可' : notificationStatus === 'unsupported' ? '通知に非対応' : '通知を許可'}</button>
+              <button className="device-link-toggle" type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLink())}>{deviceUrl ? '閉じる' : '別の端末でも使う'}</button>
+            </div>
             {deviceUrl && <div className="expandable-panel">
               <small>{new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(deviceExpiresAt))}まで</small>
               <p>{deviceUrl}</p>
@@ -639,6 +650,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
                 <button type="button" onClick={() => navigator.clipboard.writeText(inviteUrl)}>リンクをコピー</button>
                 {inviteQr && <img src={inviteQr} alt="家族を招待するQRコード" />}
               </div>}
+              <hr className="settings-divider" />
               <ul>
                 {members.map((member) => (
                   <li key={member.id}>

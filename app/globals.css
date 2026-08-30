@@ -203,11 +203,17 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .personal-menu-button span { display: block; width: 15px; height: 2px; background: currentColor; border-radius: 2px; }
 .personal-menu-button svg { width: 19px; height: 19px; fill: currentColor; }
 .settings-panel { position: relative; display: grid; flex: 0 0 auto; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); align-content: start; gap: 20px 24px; max-height: min(62dvh, 620px); padding: 16px 48px 17px 24px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; color: var(--ink); background: #dddddd; border-bottom: 1px solid var(--line); }
-.personal-settings-main, .member-setting { display: flex; align-items: center; flex-wrap: wrap; gap: 9px 12px; align-content: flex-start; }
-.personal-settings-main > strong { width: 100%; font-size: 13px; font-weight: 800; }
+.personal-settings-main { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.member-setting { display: flex; align-items: center; flex-wrap: wrap; gap: 9px 12px; align-content: flex-start; }
 .member-setting-header > strong { font-size: 13px; font-weight: 800; }
+.settings-heading { display: flex; align-items: center; gap: 8px; }
+.settings-heading strong { font-size: 13px; font-weight: 800; }
+.settings-heading .setup-icon-preview { width: 32px; height: 32px; border-radius: 10px; font-size: 14px; }
+.settings-row { display: flex; align-items: center; flex-wrap: wrap; gap: 9px 12px; }
+.settings-row-right { justify-content: flex-end; }
+.settings-divider { width: 100%; margin: 2px 0; border: 0; border-top: 1px solid var(--line); }
+.settings-note { color: var(--muted); font-size: 11px; line-height: 1.6; }
 .personal-settings-main label { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; }
-.personal-settings-main label.full-row { flex-basis: 100%; }
 .personal-settings-main input, .personal-settings-main select { width: 62px; padding: 6px; text-align: center; border: 1px solid #cbd8d0; border-radius: 7px; background: white; }
 .wide-input { width: 140px !important; text-align: left !important; }
 .member-setting-header { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 9px; }
@@ -240,7 +246,7 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 .personal-settings-main .setup-icon-preview { width: 44px; height: 44px; font-size: 18px; border-radius: 14px; }
 .personal-save, .personal-notification { min-height: 34px; padding: 7px 9px; color: var(--context-strong); background: var(--context-soft); border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
 .personal-notification { color: var(--muted); background: white; border-color: var(--line); }
-.device-link-toggle { min-height: 34px; margin-left: auto; padding: 7px 9px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
+.device-link-toggle { min-height: 34px; padding: 7px 9px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
 
 .composer {
   flex: 0 0 auto;

@@ -76,7 +76,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     <main className="admin-shell">
       <section className="admin-card">
         <p className="admin-eyebrow">管理ツール</p>
-        <h1>{groupName || '家族のおしゃべり'}</h1>
+        <h1>{groupIcon && <span className="header-icon" aria-hidden="true">{groupIcon}</span>}{groupName || '家族のおしゃべり'}</h1>
 
         {status === 'loading' && <p className="admin-state">確認しています…</p>}
         {status === 'forbidden' && <p className="admin-state" role="alert">この操作には管理者権限が必要です。会話画面からログインし直してください。</p>}
@@ -84,16 +84,25 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
         {status === 'ready' && (
           <div className="admin-tools">
             <div className="admin-tool-row admin-tool-row-column">
-              <strong>グループの設定</strong>
               <div className="personal-settings-main">
-                <label className="full-row">グループの名前<input className="wide-input" value={groupName} maxLength={40} onChange={(event) => setGroupName(event.target.value)} /></label>
-                <div className="setup-icon-preview" aria-hidden="true" style={{ background: groupColor }}>{groupIcon || groupName.slice(0, 1)}</div>
-                <label>アイコン<input value={groupIcon} maxLength={8} onChange={(event) => setGroupIcon(event.target.value)} /></label>
-                <div className="personal-color-options" aria-label="グループの色">
-                  {PROFILE_COLORS.map((color) => <button key={color} type="button" aria-label={color} className={color === groupColor ? 'is-selected' : ''} style={{ background: color }} onClick={() => setGroupColor(color)} />)}
-                  <span className="color-picker-wrap"><input type="color" aria-label="色を自由に選ぶ" value={groupColor} onChange={(event) => setGroupColor(event.target.value)} /></span>
+                <div className="settings-heading">
+                  <div className="setup-icon-preview" aria-hidden="true" style={{ background: groupColor }}>{groupIcon || groupName.slice(0, 1)}</div>
+                  <strong>グループの設定</strong>
                 </div>
-                <button className="personal-save" type="button" onClick={saveGroupProfile} disabled={savingGroup}>{savingGroup ? '保存中…' : '保存'}</button>
+                <div className="settings-row">
+                  <label>グループの名前<input className="wide-input" value={groupName} maxLength={40} onChange={(event) => setGroupName(event.target.value)} /></label>
+                </div>
+                <div className="settings-row">
+                  <label>アイコン<input value={groupIcon} maxLength={8} onChange={(event) => setGroupIcon(event.target.value)} /></label>
+                  <div className="personal-color-options" aria-label="グループの色">
+                    {PROFILE_COLORS.map((color) => <button key={color} type="button" aria-label={color} className={color === groupColor ? 'is-selected' : ''} style={{ background: color }} onClick={() => setGroupColor(color)} />)}
+                    <span className="color-picker-wrap"><input type="color" aria-label="色を自由に選ぶ" value={groupColor} onChange={(event) => setGroupColor(event.target.value)} /></span>
+                  </div>
+                </div>
+                <small className="settings-note">ホーム画面のアイコンとアプリ名は、アプリをいったんアンインストールして、インストールしなおさないと更新されないことが多いです。</small>
+                <div className="settings-row">
+                  <button className="personal-save" type="button" onClick={saveGroupProfile} disabled={savingGroup}>{savingGroup ? '保存中…' : '保存'}</button>
+                </div>
               </div>
             </div>
             <div className="admin-tool-row">
