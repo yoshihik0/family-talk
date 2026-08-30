@@ -21,7 +21,7 @@ html { background: var(--context-pale); }
 body {
   margin: 0;
   color: var(--ink);
-  background: radial-gradient(circle at 15% 0%, rgba(130, 181, 151, 0.22), transparent 34rem), var(--context-pale);
+  background: var(--context-pale);
   font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
 }
 
