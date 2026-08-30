@@ -203,7 +203,7 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .personal-menu-button span { display: block; width: 15px; height: 2px; background: currentColor; border-radius: 2px; }
 .personal-menu-button svg { width: 19px; height: 19px; fill: currentColor; }
 .settings-panel { display: flex; flex-direction: column; flex: 0 0 auto; gap: 4px; max-height: min(62dvh, 620px); padding: 8px 20px 17px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; color: var(--ink); background: #dddddd; border-bottom: 1px solid var(--line); }
-.settings-panel-topbar { display: flex; justify-content: flex-end; }
+.settings-panel-topbar { position: sticky; top: 0; z-index: 1; display: flex; justify-content: flex-end; margin: -8px -20px 0; padding: 8px 20px 4px; background: #dddddd; }
 .settings-panel-body { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 20px 24px; }
 .settings-panel-body > .personal-settings-main, .settings-panel-body > .member-setting { flex: 1 1 258px; }
 .personal-settings-main { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
@@ -225,6 +225,7 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .member-setting .member-name { flex: 1 1 auto; overflow-wrap: anywhere; }
 .member-setting button { padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
 .member-confirm { display: flex; flex: 0 0 auto; gap: 6px; }
+.member-confirm button { padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
 .admin-member-list { display: flex; width: 100%; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .admin-member-row { display: flex; align-items: center; gap: 9px; font-size: 13px; }
 .admin-member-row .member-name { flex: 1 1 auto; overflow-wrap: anywhere; }
@@ -292,6 +293,7 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
   .text-size-control button { min-width: 31px; min-height: 34px; padding-inline: 6px; }
   .timeline { padding-inline: 14px; }
   .settings-panel { padding: 6px 16px 16px; }
+  .settings-panel-topbar { margin: -6px -16px 0; padding: 6px 16px 4px; }
   .settings-panel-body { gap: 15px; }
   .settings-panel-body > .personal-settings-main, .settings-panel-body > .member-setting { flex-basis: 100%; }
   .settings-panel-body > div + div { padding-top: 14px; border-top: 1px solid var(--line); }

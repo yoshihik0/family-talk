@@ -132,6 +132,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const [loadingOlder, setLoadingOlder] = useState(false);
   const timelineEnd = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const settingsPanelRef = useRef<HTMLElement>(null);
   const pendingScrollAdjustRef = useRef<{ prevScrollHeight: number; prevScrollTop: number } | null>(null);
   const recognitionRef = useRef<Recognition | null>(null);
   const voiceTimerRef = useRef<number | null>(null);
@@ -248,20 +249,40 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     };
   }, [settingsOpen]);
 
+  // 設定パネルの外(会話画面側)をクリックしたら閉じる。
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('.personal-menu-button')) return;
+      if (settingsPanelRef.current && !settingsPanelRef.current.contains(target)) {
+        setSettingsOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [settingsOpen]);
+
   // メンバー一覧は全員が見られるので、設定を開いたときに取りに行く。
-  // 自分の設定側の表示も、開くたびに最新のconversation.meへ合わせ直す
-  // (管理ツール側でリモート修正された場合など、定期更新だけでは
-  // このプレビューまでは同期されないため)。
+  // 自分の設定側の表示も、開くたびにこのレスポンス(DBを直接読む、最新の値)
+  // へ合わせ直す。conversation.meはポーリング頼りで最新とは限らないため、
+  // conversation.meからではなく、ここで取得した自分自身のメンバー情報を使う。
   useEffect(() => {
     if (!settingsOpen || !conversation) return;
-    setPersonalName(conversation.me.displayName);
-    setPersonalAvatar(conversation.me.metadata?.avatarLabel ?? conversation.me.displayName.slice(0, 1));
-    setPersonalColor(conversation.me.metadata?.avatarColor ?? profileColors[0]);
-    const savedDuration = Number(conversation.me.metadata?.voiceDuration);
-    setPersonalDuration(savedDuration === 15 || savedDuration === 30 || savedDuration === 60 ? savedDuration : personalDuration || 30);
     fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(conversation.space.id)}`, { cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<{ members: GroupMember[] }> : null)
-      .then((data) => setMembers(data?.members ?? []))
+      .then((data) => {
+        const list = data?.members ?? [];
+        setMembers(list);
+        const me = list.find((member) => member.id === conversation.me.id);
+        if (me) {
+          setPersonalName(me.displayName);
+          setPersonalAvatar(me.avatarLabel ?? me.displayName.slice(0, 1));
+          setPersonalColor(me.avatarColor ?? profileColors[0]);
+          const savedDuration = Number(me.voiceDuration);
+          setPersonalDuration(savedDuration === 15 || savedDuration === 30 || savedDuration === 60 ? savedDuration : 30);
+        }
+      })
       .catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen, conversation?.space.id]);
@@ -567,7 +588,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
           <button className="personal-menu-button" type="button" aria-label="設定" aria-expanded={settingsOpen} onClick={() => setSettingsOpen((open) => !open)}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.02-.66-.07-.98l2.11-1.65-2-3.46-2.49 1a7.2 7.2 0 0 0-1.69-.98L15 3h-4l-.36 2.93c-.6.25-1.16.58-1.69.98l-2.49-1-2 3.46 2.11 1.65c-.04.32-.08.65-.08.98s.03.66.08.98l-2.11 1.65 2 3.46 2.49-1c.53.4 1.09.73 1.69.98L11 21h4l.36-2.93c.6-.25 1.16-.58 1.69-.98l2.49 1 2.11-3.46-2.11-1.65ZM13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5Z" /></svg></button>
         </header>
 
-        {settingsOpen && <section className="settings-panel" aria-label="設定">
+        {settingsOpen && <section className="settings-panel" aria-label="設定" ref={settingsPanelRef}>
           <div className="settings-panel-topbar">
             <button className="personal-settings-close" type="button" aria-label="閉じる" onClick={() => setSettingsOpen(false)}>×</button>
           </div>

@@ -233,8 +233,10 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                     {confirmDeleteId === member.id && (
                       <div className="personal-settings-main admin-member-edit">
                         <div className="settings-row settings-row-right">
-                          <button type="button" className="confirm-danger" onClick={() => deleteMember(member.id)}>本当に削除</button>
-                          <button type="button" className="confirm-safe" onClick={() => setConfirmDeleteId(null)}>やめる</button>
+                          <span className="member-confirm">
+                            <button type="button" className="confirm-danger" onClick={() => deleteMember(member.id)}>本当に削除</button>
+                            <button type="button" className="confirm-safe" onClick={() => setConfirmDeleteId(null)}>やめる</button>
+                          </span>
                         </div>
                       </div>
                     )}
