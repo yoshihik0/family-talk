@@ -45,7 +45,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [multiInviteUrl, setMultiInviteUrl] = useState('');
   const [multiInviteExpiresAt, setMultiInviteExpiresAt] = useState('');
   const [multiInviteQr, setMultiInviteQr] = useState('');
-  const [multiInviteDays, setMultiInviteDays] = useState(7);
+  const [multiInviteDays, setMultiInviteDays] = useState(1);
   const [creatingMultiInvite, setCreatingMultiInvite] = useState(false);
 
   const [currentVersion, setCurrentVersion] = useState('');
@@ -313,10 +313,12 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
 
             <div className="admin-tool-row admin-tool-row-column">
               <strong>友人・グループを招待</strong>
-              <small>期限内であれば何人でも参加できる、共有用の招待リンクです(最大{MULTI_INVITE_MAX_USES}人まで)。</small>
-              <div className="settings-row">
-                <label>有効期限<select value={multiInviteDays} onChange={(event) => setMultiInviteDays(Number(event.target.value))}><option value={1}>1日</option><option value={3}>3日</option><option value={7}>7日</option></select></label>
-                <button className="personal-save" type="button" onClick={createMultiInvite} disabled={creatingMultiInvite}>{creatingMultiInvite ? '発行中…' : '発行'}</button>
+              <small>期限内に複数のユーザーが参加できる、共有用の招待リンクです(最大{MULTI_INVITE_MAX_USES}人まで)。</small>
+              <div className="personal-settings-main">
+                <div className="settings-row">
+                  <label>有効期限<select value={multiInviteDays} onChange={(event) => setMultiInviteDays(Number(event.target.value))}><option value={1}>1日</option><option value={3}>3日</option><option value={7}>7日</option></select></label>
+                  <button className="personal-save" type="button" onClick={createMultiInvite} disabled={creatingMultiInvite}>{creatingMultiInvite ? '発行中…' : '発行'}</button>
+                </div>
               </div>
               {multiInviteUrl && <div className="expandable-panel">
                 <small>{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(multiInviteExpiresAt))}まで有効です。</small>

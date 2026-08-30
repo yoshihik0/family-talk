@@ -14,15 +14,15 @@ export async function POST(request: Request) {
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
   const spaceId = requestedSpaceId || session.spaceId;
 
-  // 通常の招待(1人・7日間)は誰でも作れる。複数人向け・期限指定は管理者限定。
+  // 通常の招待(1人・1日間)は誰でも作れる。複数人向け・期限指定は管理者限定。
   let maxUses = 1;
-  let expiresInDays = 7;
+  let expiresInDays = 1;
   if (body?.multiUse === true) {
     const auth = await requireHostForSpace(request, spaceId);
     if ('error' in auth) return auth.error;
     maxUses = MULTI_USE_MAX_USES;
     const requestedExpiresInDays = Number(body?.expiresInDays);
-    expiresInDays = Number.isInteger(requestedExpiresInDays) && requestedExpiresInDays >= 1 && requestedExpiresInDays <= MULTI_USE_MAX_DAYS ? requestedExpiresInDays : MULTI_USE_MAX_DAYS;
+    expiresInDays = Number.isInteger(requestedExpiresInDays) && requestedExpiresInDays >= 1 && requestedExpiresInDays <= MULTI_USE_MAX_DAYS ? requestedExpiresInDays : 1;
   }
 
   const [space] = await getDb().select({ settings: spaces.settings }).from(spaces).where(eq(spaces.id, spaceId)).limit(1);
