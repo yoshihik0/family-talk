@@ -3,7 +3,6 @@
 import { Fragment, FormEvent, useEffect, useRef, useState, type CSSProperties } from 'react';
 import QRCode from 'qrcode';
 import { enableNotifications, getGroupServiceWorker, getNotificationState, groupAppPath, type NotificationState } from '@/lib/push/client';
-import { UPDATE_INSTRUCTIONS_PROMPT } from '@/lib/text/update-instructions';
 
 type Message = {
   id: string;
@@ -126,10 +125,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const [members, setMembers] = useState<GroupMember[]>([]);
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [appVersion, setAppVersion] = useState('');
-  const [updateCheck, setUpdateCheck] = useState<'idle' | 'checking' | 'latest' | 'available' | 'error'>('idle');
-  const [latestVersion, setLatestVersion] = useState('');
-  const [updateCopied, setUpdateCopied] = useState(false);
   const [inviteUrl, setInviteUrl] = useState('');
   const [inviteExpiresAt, setInviteExpiresAt] = useState('');
   const [inviteQr, setInviteQr] = useState('');
@@ -261,12 +256,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       .then((response) => response.ok ? response.json() as Promise<{ members: GroupMember[] }> : null)
       .then((data) => setMembers(data?.members ?? []))
       .catch(() => undefined);
-    fetch('/api/v1/health', { cache: 'no-store' })
-      .then((response) => response.ok ? response.json() as Promise<{ version: string }> : null)
-      .then((data) => { if (data) setAppVersion(data.version); })
-      .catch(() => undefined);
-    setUpdateCheck('idle');
-    setUpdateCopied(false);
   }, [settingsOpen, conversation?.space.id]);
 
   useEffect(() => {
@@ -475,28 +464,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     setMembers((current) => current.filter((entry) => entry.id !== member.id));
   }
 
-  async function checkForUpdate() {
-    setUpdateCheck('checking');
-    const response = await fetch('https://raw.githubusercontent.com/yoshihik0/family-talk/main/package.json', { cache: 'no-store' }).catch(() => null);
-    if (!response?.ok) {
-      setUpdateCheck('error');
-      return;
-    }
-    const data = await response.json().catch(() => null) as { version?: unknown } | null;
-    const version = typeof data?.version === 'string' ? data.version : '';
-    if (!version) {
-      setUpdateCheck('error');
-      return;
-    }
-    setLatestVersion(version);
-    setUpdateCheck(version !== appVersion ? 'available' : 'latest');
-  }
-
-  async function copyUpdateInstructions() {
-    await navigator.clipboard.writeText(UPDATE_INSTRUCTIONS_PROMPT).catch(() => undefined);
-    setUpdateCopied(true);
-  }
-
   async function deleteMessage(messageId: string) {
     if (!conversation) return;
     setConfirmDeleteId(null);
@@ -667,16 +634,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
                 ))}
               </ul>
               <div className="admin-links-setting">
-                <div className="version-row">
-                  <span>バージョン {appVersion || '…'}</span>
-                  {(updateCheck === 'idle' || updateCheck === 'checking') && <button type="button" onClick={checkForUpdate} disabled={updateCheck === 'checking'}>{updateCheck === 'checking' ? '確認中…' : 'アップデートを確認'}</button>}
-                  {updateCheck === 'latest' && <span className="update-status">最新版です</span>}
-                  {updateCheck === 'error' && <button type="button" onClick={checkForUpdate}>確認できませんでした・もう一度</button>}
-                </div>
-                {updateCheck === 'available' && <div className="expandable-panel">
-                  <small>新しいバージョンがあります({latestVersion})。下の手順をAIエージェントに渡してください。</small>
-                  <button type="button" onClick={copyUpdateInstructions}>{updateCopied ? 'コピーしました' : '更新手順をコピー'}</button>
-                </div>}
                 <a className="admin-tool-link" href={`/admin/${encodeURIComponent(conversation.space.id)}`} target="_blank" rel="noreferrer">管理ツールを開く</a>
               </div>
             </div>

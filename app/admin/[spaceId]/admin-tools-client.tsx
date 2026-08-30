@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { UPDATE_INSTRUCTIONS_PROMPT } from '@/lib/text/update-instructions';
 import { PROFILE_COLORS } from '@/lib/theme/colors';
+import { compareVersions } from '@/lib/text/version';
+
+type UpdateNotice = { maxVersion: string; message: string };
 
 export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'forbidden'>('loading');
@@ -13,6 +16,10 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [groupIcon, setGroupIcon] = useState('');
   const [groupColor, setGroupColor] = useState(PROFILE_COLORS[0]);
   const [savingGroup, setSavingGroup] = useState(false);
+
+  const [currentVersion, setCurrentVersion] = useState('');
+  const [latestVersion, setLatestVersion] = useState('');
+  const [notices, setNotices] = useState<UpdateNotice[]>([]);
 
   useEffect(() => {
     fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(spaceId)}`, { cache: 'no-store' })
@@ -29,6 +36,29 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
       })
       .catch(() => setStatus('forbidden'));
   }, [spaceId]);
+
+  // ウェブページの読み込みだけで済む、副作用のない確認なので自動で行う。
+  useEffect(() => {
+    fetch('/api/v1/health', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() as Promise<{ version: string }> : null)
+      .then((data) => { if (data) setCurrentVersion(data.version); })
+      .catch(() => undefined);
+    fetch('https://raw.githubusercontent.com/yoshihik0/family-talk/main/package.json', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() as Promise<{ version?: unknown }> : null)
+      .then((data) => { if (typeof data?.version === 'string') setLatestVersion(data.version); })
+      .catch(() => undefined);
+    fetch('https://raw.githubusercontent.com/yoshihik0/family-talk/main/public/update-notices.json', { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() as Promise<UpdateNotice[]> : null)
+      .then((data) => setNotices(Array.isArray(data) ? data : []))
+      .catch(() => undefined);
+  }, []);
+
+  // 現在のバージョンが対象範囲(maxVersion以下)に入る通知のうち、もっとも新しいものを表示する。
+  const applicableNotice = currentVersion
+    ? notices
+        .filter((item) => compareVersions(currentVersion, item.maxVersion) <= 0)
+        .sort((a, b) => compareVersions(b.maxVersion, a.maxVersion))[0]
+    : undefined;
 
   async function saveGroupProfile() {
     const name = groupName.trim();
@@ -105,20 +135,23 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                 </div>
               </div>
             </div>
+            <div className="admin-tool-row admin-tool-row-column">
+              <strong>アップデート</strong>
+              <div className="version-summary">
+                <div>現在のバージョン: {currentVersion || '確認中…'}</div>
+                <div>最新のバージョン: {latestVersion || '確認中…'}{currentVersion && latestVersion && currentVersion === latestVersion && <span className="update-status"> (最新版です)</span>}</div>
+              </div>
+              {applicableNotice && <p className="update-notice" role="alert">{applicableNotice.message}</p>}
+              <small>AIエージェントに、この文章をそのまま渡してください。インストールしたときのディレクトリで作業してもらう必要があります。</small>
+              <p className="admin-prompt-text">{UPDATE_INSTRUCTIONS_PROMPT}</p>
+              <button type="button" onClick={copyPrompt}>{promptCopied ? 'コピーしました' : 'コピー'}</button>
+            </div>
             <div className="admin-tool-row">
               <div>
                 <strong>会話ログをダウンロード</strong>
                 <small>削除済みの発言も含めて、全件をCSVファイルで保存します。</small>
               </div>
               <button type="button" onClick={downloadLog} disabled={downloading}>{downloading ? '準備中…' : 'ダウンロード'}</button>
-            </div>
-            <div className="admin-tool-row admin-tool-row-column">
-              <div>
-                <strong>AIを使ってアップデート</strong>
-                <small>AIエージェントに、この文章をそのまま渡してください。インストールしたときのディレクトリで作業してもらう必要があります。</small>
-                <p className="admin-prompt-text">{UPDATE_INSTRUCTIONS_PROMPT}</p>
-              </div>
-              <button type="button" onClick={copyPrompt}>{promptCopied ? 'コピーしました' : 'コピー'}</button>
             </div>
           </div>
         )}

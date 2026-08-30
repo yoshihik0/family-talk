@@ -227,7 +227,6 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .admin-tool-link { align-self: flex-end; padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; text-decoration: none; }
 .version-row { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 9px; font-size: 12px; color: var(--muted); }
 .version-row button { padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
-.update-status { font-weight: 700; }
 button.confirm-danger { color: #a1483f; background: #f6e6e4; border-color: #e3bcb7; }
 button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0; }
 .personal-settings-close { position: absolute; top: 7px; right: 10px; width: 28px; height: 28px; padding: 0; color: var(--muted); background: transparent; border: 0; font-size: 20px; }
@@ -318,10 +317,12 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 .admin-tool-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; }
 .admin-tool-row strong { display: block; font-size: 14px; }
 .admin-tool-row small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.6; }
-.admin-tool-row button { flex: 0 0 auto; min-height: 40px; padding: 8px 16px; color: white; background: var(--context-primary); border: 0; border-radius: 10px; font-size: 13px; font-weight: 800; }
-.admin-tool-row button:disabled { opacity: .6; }
+.admin-tool-row > button { flex: 0 0 auto; min-height: 40px; padding: 8px 16px; color: white; background: var(--context-primary); border: 0; border-radius: 10px; font-size: 13px; font-weight: 800; }
+.admin-tool-row > button:disabled { opacity: .6; }
 .admin-tool-row-column { flex-direction: column; align-items: flex-start; }
-.admin-tool-row-column button { align-self: flex-end; }
+.admin-tool-row-column > button { align-self: flex-end; }
 .admin-prompt-text { margin: 10px 0 0; padding: 12px; color: var(--ink); background: var(--context-pale); border-radius: 10px; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.version-summary { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+.update-notice { margin: 0; padding: 10px 12px; color: #7a2e24; background: #f6e6e4; border: 1px solid #e3bcb7; border-radius: 10px; font-size: 12px; font-weight: 700; line-height: 1.6; }
 .admin-footer { margin-top: 28px; color: var(--muted); font-size: 12px; text-align: center; }
 .admin-footer a { color: var(--muted); font-size: inherit; text-decoration: none; }
