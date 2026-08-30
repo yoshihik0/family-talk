@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   const token = createOpaqueToken();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + 30 * 60 * 1000);
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   await getDb().insert(deviceLinks).values({ id: crypto.randomUUID(), spaceId, identityId: targetIdentityId, tokenHash: await hashToken(token), expiresAt, usedAt: null, createdAt: now });
   return Response.json({ deviceUrl: `${new URL(request.url).origin}/device/${token}`, expiresAt: expiresAt.toISOString() }, { status: 201 });
 }

@@ -259,7 +259,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                           <button className="device-link-toggle" type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLinkFor(member.id))} disabled={creatingDeviceLink}>{deviceUrl ? '閉じる' : 'ログイン情報'}</button>
                         </div>
                         {deviceUrl && <div className="expandable-panel">
-                          <small>ログインできなくなった端末の代わりに、この情報を{member.displayName}さんに伝えてください。{new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(deviceExpiresAt))}まで有効です。</small>
+                          <small>この情報を{member.displayName}さんに伝えてください。{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(deviceExpiresAt))}まで有効です。</small>
                           <p>{deviceUrl}</p>
                           <button type="button" onClick={() => navigator.clipboard.writeText(deviceUrl)}>リンクをコピー</button>
                           {deviceQr && <img src={deviceQr} alt="別の端末をつなぐQRコード" />}
