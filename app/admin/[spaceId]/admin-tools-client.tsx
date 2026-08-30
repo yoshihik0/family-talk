@@ -287,7 +287,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                           <label>話す時間<select value={editDuration} onChange={(event) => setEditDuration(Number(event.target.value))}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>
                         </div>
                         <div className="settings-row">
-                          <label>ユーザー追加<select className="wide-input" value={editCanInvite ? '1' : '0'} onChange={(event) => setEditCanInvite(event.target.value === '1')}><option value="0">不許可（デフォルト）</option><option value="1">許可</option></select></label>
+                          <label>ユーザー追加<select className="wide-input" value={editCanInvite ? '1' : '0'} onChange={(event) => setEditCanInvite(event.target.value === '1')}><option value="0">不許可</option><option value="1">許可</option></select></label>
                           <button className="personal-save" type="button" onClick={() => saveMemberProfile(member.id)} disabled={savingMemberId === member.id}>{savingMemberId === member.id ? '保存中…' : '保存'}</button>
                         </div>
                         <hr className="settings-divider" />
