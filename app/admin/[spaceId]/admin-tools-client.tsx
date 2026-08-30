@@ -26,6 +26,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [savingGroup, setSavingGroup] = useState(false);
 
   const [members, setMembers] = useState<Member[]>([]);
+  const [viewerId, setViewerId] = useState('');
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editIcon, setEditIcon] = useState('');
@@ -42,7 +43,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     return fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(spaceId)}`, { cache: 'no-store' })
       .then((response) => {
         if (!response.ok) { setStatus('forbidden'); return null; }
-        return response.json() as Promise<{ viewerRole: string; space: { name: string; icon: string; color: string }; members: Member[] }>;
+        return response.json() as Promise<{ viewerRole: string; viewerId: string; space: { name: string; icon: string; color: string }; members: Member[] }>;
       })
       .then((data) => {
         if (!data) return;
@@ -51,6 +52,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
         setGroupIcon(data.space.icon);
         setGroupColor(data.space.color);
         setMembers(data.members);
+        setViewerId(data.viewerId);
         setStatus('ready');
       })
       .catch(() => setStatus('forbidden'));
@@ -209,7 +211,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                     <div className="admin-member-row">
                       <span className="message-avatar" style={{ background: member.avatarColor ?? '#3f7d61' }}>{member.avatarLabel ?? member.displayName.slice(0, 1)}</span>
                       <span className="member-name">{member.displayName}{member.role === 'owner' && '（管理者）'}</span>
-                      <button type="button" onClick={() => (editingMemberId === member.id ? setEditingMemberId(null) : startEditMember(member))}>{editingMemberId === member.id ? '閉じる' : '編集'}</button>
+                      {member.id !== viewerId && <button type="button" onClick={() => (editingMemberId === member.id ? setEditingMemberId(null) : startEditMember(member))}>{editingMemberId === member.id ? '閉じる' : '編集'}</button>}
                       {member.role !== 'owner' && <button type="button" onClick={() => { if (confirmDeleteId === member.id) { setConfirmDeleteId(null); } else { setConfirmDeleteId(member.id); setEditingMemberId(null); } }}>{confirmDeleteId === member.id ? '閉じる' : '削除'}</button>}
                     </div>
                     {editingMemberId === member.id && (

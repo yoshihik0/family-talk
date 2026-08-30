@@ -30,6 +30,7 @@ export async function GET(request: Request) {
 
   return Response.json({
     viewerRole: session.role,
+    viewerId: session.identityId,
     space: {
       id: spaceId,
       name: space?.name ?? '',
