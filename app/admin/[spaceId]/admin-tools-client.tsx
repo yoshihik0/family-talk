@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import { UPDATE_INSTRUCTIONS_PROMPT } from '@/lib/text/update-instructions';
 import { PROFILE_COLORS } from '@/lib/theme/colors';
 import { compareVersions } from '@/lib/text/version';
@@ -34,6 +35,10 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [editDuration, setEditDuration] = useState(30);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deviceUrl, setDeviceUrl] = useState('');
+  const [deviceExpiresAt, setDeviceExpiresAt] = useState('');
+  const [deviceQr, setDeviceQr] = useState('');
+  const [creatingDeviceLink, setCreatingDeviceLink] = useState(false);
 
   const [currentVersion, setCurrentVersion] = useState('');
   const [latestVersion, setLatestVersion] = useState('');
@@ -62,6 +67,11 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     loadOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spaceId]);
+
+  useEffect(() => {
+    if (deviceUrl) QRCode.toDataURL(deviceUrl, { margin: 1, width: 180 }).then(setDeviceQr).catch(() => setDeviceQr(''));
+    else setDeviceQr('');
+  }, [deviceUrl]);
 
   // ウェブページの読み込みだけで済む、副作用のない確認なので自動で行う。
   useEffect(() => {
@@ -109,6 +119,20 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     setEditIcon(member.avatarLabel ?? member.displayName.slice(0, 1));
     setEditColor(member.avatarColor ?? PROFILE_COLORS[0]);
     setEditDuration(member.voiceDuration === 15 || member.voiceDuration === 60 ? member.voiceDuration : 30);
+    setDeviceUrl('');
+  }
+
+  async function createDeviceLinkFor(memberId: string) {
+    setCreatingDeviceLink(true);
+    const response = await fetch('/api/v1/device-links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId, memberId }) }).catch(() => null);
+    setCreatingDeviceLink(false);
+    if (!response?.ok) {
+      window.alert('接続リンクを作れませんでした。');
+      return;
+    }
+    const result = await response.json() as { deviceUrl: string; expiresAt: string };
+    setDeviceUrl(result.deviceUrl);
+    setDeviceExpiresAt(result.expiresAt);
   }
 
   async function saveMemberProfile(memberId: string) {
@@ -230,6 +254,16 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                           <label>話す時間<select value={editDuration} onChange={(event) => setEditDuration(Number(event.target.value))}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>
                           <button className="personal-save" type="button" onClick={() => saveMemberProfile(member.id)} disabled={savingMemberId === member.id}>{savingMemberId === member.id ? '保存中…' : '保存'}</button>
                         </div>
+                        <hr className="settings-divider" />
+                        <div className="settings-row">
+                          <button type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLinkFor(member.id))} disabled={creatingDeviceLink}>{deviceUrl ? '閉じる' : '別の端末でログイン'}</button>
+                        </div>
+                        {deviceUrl && <div className="expandable-panel">
+                          <small>ログインできなくなった端末の代わりに、この情報を{member.displayName}さんに伝えてください。{new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(deviceExpiresAt))}まで有効です。</small>
+                          <p>{deviceUrl}</p>
+                          <button type="button" onClick={() => navigator.clipboard.writeText(deviceUrl)}>リンクをコピー</button>
+                          {deviceQr && <img src={deviceQr} alt="別の端末をつなぐQRコード" />}
+                        </div>}
                       </div>
                     )}
                     {confirmDeleteId === member.id && (

@@ -547,7 +547,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   }
 
   if (!conversation) {
-    return <main className="app-shell"><section className="state-card" role="status">家族のおしゃべりを開いています…</section></main>;
+    return <main className="app-shell app-shell-loading" role="status"><p className="loading-text">家族のおしゃべりを開いています…</p></main>;
   }
 
   const appProfile = (conversation.space.settings.appProfile ?? {}) as { icon?: string };
