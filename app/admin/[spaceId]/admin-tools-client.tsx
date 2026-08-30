@@ -256,7 +256,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                         </div>
                         <hr className="settings-divider" />
                         <div className="settings-row">
-                          <button type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLinkFor(member.id))} disabled={creatingDeviceLink}>{deviceUrl ? '閉じる' : '別の端末でログイン'}</button>
+                          <button className="device-link-toggle" type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLinkFor(member.id))} disabled={creatingDeviceLink}>{deviceUrl ? '閉じる' : 'ログイン情報'}</button>
                         </div>
                         {deviceUrl && <div className="expandable-panel">
                           <small>ログインできなくなった端末の代わりに、この情報を{member.displayName}さんに伝えてください。{new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(deviceExpiresAt))}まで有効です。</small>
