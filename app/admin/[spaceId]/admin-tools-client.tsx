@@ -6,6 +6,14 @@ import { PROFILE_COLORS } from '@/lib/theme/colors';
 import { compareVersions } from '@/lib/text/version';
 
 type UpdateNotice = { maxVersion: string; message: string };
+type Member = {
+  id: string;
+  displayName: string;
+  role: string;
+  avatarLabel?: string;
+  avatarColor?: string;
+  voiceDuration?: number;
+};
 
 export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'forbidden'>('loading');
@@ -17,24 +25,40 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [groupColor, setGroupColor] = useState(PROFILE_COLORS[0]);
   const [savingGroup, setSavingGroup] = useState(false);
 
+  const [members, setMembers] = useState<Member[]>([]);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editIcon, setEditIcon] = useState('');
+  const [editColor, setEditColor] = useState(PROFILE_COLORS[0]);
+  const [editDuration, setEditDuration] = useState(30);
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
   const [currentVersion, setCurrentVersion] = useState('');
   const [latestVersion, setLatestVersion] = useState('');
   const [notices, setNotices] = useState<UpdateNotice[]>([]);
 
-  useEffect(() => {
-    fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(spaceId)}`, { cache: 'no-store' })
+  function loadOverview() {
+    return fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(spaceId)}`, { cache: 'no-store' })
       .then((response) => {
         if (!response.ok) { setStatus('forbidden'); return null; }
-        return response.json() as Promise<{ space: { name: string; icon: string; color: string }; members: Array<{ id: string }> }>;
+        return response.json() as Promise<{ viewerRole: string; space: { name: string; icon: string; color: string }; members: Member[] }>;
       })
       .then((data) => {
         if (!data) return;
+        if (data.viewerRole !== 'owner' && data.viewerRole !== 'host') { setStatus('forbidden'); return; }
         setGroupName(data.space.name);
         setGroupIcon(data.space.icon);
         setGroupColor(data.space.color);
+        setMembers(data.members);
         setStatus('ready');
       })
       .catch(() => setStatus('forbidden'));
+  }
+
+  useEffect(() => {
+    loadOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spaceId]);
 
   // ウェブページの読み込みだけで済む、副作用のない確認なので自動で行う。
@@ -74,6 +98,46 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
       return;
     }
     setGroupName(name);
+  }
+
+  function startEditMember(member: Member) {
+    setEditingMemberId(member.id);
+    setEditName(member.displayName);
+    setEditIcon(member.avatarLabel ?? member.displayName.slice(0, 1));
+    setEditColor(member.avatarColor ?? PROFILE_COLORS[0]);
+    setEditDuration(member.voiceDuration === 15 || member.voiceDuration === 60 ? member.voiceDuration : 30);
+  }
+
+  async function saveMemberProfile(memberId: string) {
+    const name = editName.trim();
+    if (!name) {
+      window.alert('名前を入力してください。');
+      return;
+    }
+    setSavingMemberId(memberId);
+    const response = await fetch('/api/v1/manage/members', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spaceId, memberId, displayName: name, avatarLabel: editIcon, avatarColor: editColor, voiceDuration: editDuration }),
+    }).catch(() => null);
+    setSavingMemberId(null);
+    if (!response?.ok) {
+      window.alert('名前は40文字以内、アイコンは1つの文字で設定してください。');
+      return;
+    }
+    setMembers((current) => current.map((member) => member.id === memberId ? { ...member, displayName: name, avatarLabel: editIcon, avatarColor: editColor, voiceDuration: editDuration } : member));
+    setEditingMemberId(null);
+  }
+
+  async function deleteMember(memberId: string) {
+    setConfirmDeleteId(null);
+    const params = new URLSearchParams({ spaceId, memberId });
+    const response = await fetch(`/api/v1/manage/members?${params.toString()}`, { method: 'DELETE' }).catch(() => null);
+    if (!response?.ok) {
+      window.alert('削除できませんでした。');
+      return;
+    }
+    setMembers((current) => current.filter((member) => member.id !== memberId));
   }
 
   async function downloadLog() {
@@ -120,7 +184,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                   <strong>グループの設定</strong>
                 </div>
                 <div className="settings-row">
-                  <label>グループの名前<input className="wide-input" value={groupName} maxLength={40} onChange={(event) => setGroupName(event.target.value)} /></label>
+                  <label>名前<input className="wide-input" value={groupName} maxLength={40} onChange={(event) => setGroupName(event.target.value)} /></label>
                 </div>
                 <div className="settings-row">
                   <label>アイコン<input value={groupIcon} maxLength={8} onChange={(event) => setGroupIcon(event.target.value)} /></label>
@@ -135,6 +199,47 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                 </div>
               </div>
             </div>
+
+            <div className="admin-tool-row admin-tool-row-column">
+              <strong>メンバー</strong>
+              <ul className="admin-member-list">
+                {members.map((member) => (
+                  <li key={member.id}>
+                    <div className="admin-member-row">
+                      <span className="message-avatar" style={{ background: member.avatarColor ?? '#3f7d61' }}>{member.avatarLabel ?? member.displayName.slice(0, 1)}</span>
+                      <span className="member-name">{member.displayName}</span>
+                      {member.role === 'owner' && <span className="member-role">管理者</span>}
+                      <button type="button" onClick={() => (editingMemberId === member.id ? setEditingMemberId(null) : startEditMember(member))}>{editingMemberId === member.id ? '閉じる' : '編集'}</button>
+                      {member.role !== 'owner' && (confirmDeleteId === member.id
+                        ? <span className="member-confirm">
+                            <button type="button" className="confirm-danger" onClick={() => deleteMember(member.id)}>本当に削除</button>
+                            <button type="button" className="confirm-safe" onClick={() => setConfirmDeleteId(null)}>やめる</button>
+                          </span>
+                        : <button type="button" onClick={() => setConfirmDeleteId(member.id)}>削除</button>)}
+                    </div>
+                    {editingMemberId === member.id && (
+                      <div className="personal-settings-main admin-member-edit">
+                        <div className="settings-row">
+                          <label>名前<input className="wide-input" value={editName} maxLength={40} onChange={(event) => setEditName(event.target.value)} /></label>
+                        </div>
+                        <div className="settings-row">
+                          <label>アイコン<input value={editIcon} maxLength={20} onChange={(event) => setEditIcon(event.target.value)} /></label>
+                          <div className="personal-color-options" aria-label="メンバーの色">
+                            {PROFILE_COLORS.map((color) => <button key={color} type="button" aria-label={color} className={color === editColor ? 'is-selected' : ''} style={{ background: color }} onClick={() => setEditColor(color)} />)}
+                            <span className="color-picker-wrap"><input type="color" aria-label="色を自由に選ぶ" value={editColor} onChange={(event) => setEditColor(event.target.value)} /></span>
+                          </div>
+                        </div>
+                        <div className="settings-row">
+                          <label>話す時間<select value={editDuration} onChange={(event) => setEditDuration(Number(event.target.value))}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>
+                          <button className="personal-save" type="button" onClick={() => saveMemberProfile(member.id)} disabled={savingMemberId === member.id}>{savingMemberId === member.id ? '保存中…' : '保存'}</button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             <div className="admin-tool-row admin-tool-row-column">
               <strong>アップデート</strong>
               <div className="version-summary">

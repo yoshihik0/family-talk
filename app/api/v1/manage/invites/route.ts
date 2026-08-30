@@ -1,7 +1,6 @@
 import { getDb } from '@/db';
 import { eq } from 'drizzle-orm';
 import { invites, spaces, type JsonObject } from '@/db/schema';
-import { requireHostForSpace } from '@/lib/auth/authorize';
 import { createOpaqueToken, getDeviceSession, hashToken } from '@/lib/auth/session';
 
 export async function POST(request: Request) {
@@ -10,8 +9,6 @@ export async function POST(request: Request) {
   const session = await getDeviceSession(request, requestedSpaceId || undefined);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
   const spaceId = requestedSpaceId || session.spaceId;
-  const auth = await requireHostForSpace(request, spaceId);
-  if ('error' in auth) return auth.error;
   const [space] = await getDb().select({ settings: spaces.settings }).from(spaces).where(eq(spaces.id, spaceId)).limit(1);
   const appProfile = ((space?.settings ?? {}) as JsonObject).appProfile as JsonObject | undefined;
   if (!appProfile || typeof appProfile.name !== 'string' || typeof appProfile.icon !== 'string' || typeof appProfile.color !== 'string') {

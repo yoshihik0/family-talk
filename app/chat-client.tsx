@@ -16,7 +16,7 @@ type Message = {
 
 type ConversationPayload = {
   space: { id: string; name: string; settings: Record<string, unknown> };
-  me: { id: string; displayName: string; role: string; metadata?: { avatarLabel?: string; avatarColor?: string } };
+  me: { id: string; displayName: string; role: string; metadata?: { avatarLabel?: string; avatarColor?: string; voiceDuration?: number } };
   messages: Message[];
   hasMore: boolean;
 };
@@ -27,6 +27,7 @@ type GroupMember = {
   role: string;
   avatarLabel?: string;
   avatarColor?: string;
+  voiceDuration?: number;
 };
 
 
@@ -123,7 +124,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const [deviceExpiresAt, setDeviceExpiresAt] = useState('');
   const [deviceQr, setDeviceQr] = useState('');
   const [members, setMembers] = useState<GroupMember[]>([]);
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [inviteUrl, setInviteUrl] = useState('');
   const [inviteExpiresAt, setInviteExpiresAt] = useState('');
@@ -143,7 +143,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
         setPersonalName(data.me.displayName);
         setPersonalAvatar(data.me.metadata?.avatarLabel ?? data.me.displayName.slice(0, 1));
         setPersonalColor(data.me.metadata?.avatarColor ?? profileColors[0]);
-        const savedDuration = Number(window.localStorage.getItem(`family-chat-voice-duration-${data.space.id}`));
+        const savedDuration = Number(data.me.metadata?.voiceDuration);
         const groupDuration = Number((data.space.settings.policy as { voiceDuration?: unknown } | undefined)?.voiceDuration);
         setPersonalDuration(savedDuration === 15 || savedDuration === 30 || savedDuration === 60 ? savedDuration : groupDuration === 15 || groupDuration === 30 || groupDuration === 60 ? groupDuration : 30);
         setHasMoreOlder(data.hasMore);
@@ -248,10 +248,9 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     };
   }, [settingsOpen]);
 
-  // 管理者にだけ必要な情報なので、設定を開いたときに取りに行く。
+  // メンバー一覧は全員が見られるので、設定を開いたときに取りに行く。
   useEffect(() => {
-    if (!settingsOpen || !conversation || !canManage(conversation.me.role)) return;
-    setConfirmRemoveId(null);
+    if (!settingsOpen || !conversation) return;
     fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(conversation.space.id)}`, { cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<{ members: GroupMember[] }> : null)
       .then((data) => setMembers(data?.members ?? []))
@@ -416,14 +415,14 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       return;
     }
     setSavingPersonalProfile(true);
-    const response = await fetch('/api/v1/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId: conversation?.space.id, displayName: name, avatarLabel: personalAvatar, avatarColor: personalColor }) }).catch(() => null);
+    const response = await fetch('/api/v1/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId: conversation?.space.id, displayName: name, avatarLabel: personalAvatar, avatarColor: personalColor, voiceDuration: personalDuration }) }).catch(() => null);
     if (!response?.ok) {
       setSavingPersonalProfile(false);
       window.alert('名前は40文字以内、アイコンは1つの文字で設定してください。');
       return;
     }
-    setConversation((current) => current ? { ...current, me: { ...current.me, displayName: name, metadata: { ...current.me.metadata, avatarLabel: personalAvatar, avatarColor: personalColor } }, messages: current.messages.map((message) => message.senderId === current.me.id ? { ...message, senderName: name, avatarLabel: personalAvatar, avatarColor: personalColor } : message) } : current);
-    setMembers((current) => current.map((member) => member.id === conversation?.me.id ? { ...member, displayName: name, avatarLabel: personalAvatar, avatarColor: personalColor } : member));
+    setConversation((current) => current ? { ...current, me: { ...current.me, displayName: name, metadata: { ...current.me.metadata, avatarLabel: personalAvatar, avatarColor: personalColor, voiceDuration: personalDuration } }, messages: current.messages.map((message) => message.senderId === current.me.id ? { ...message, senderName: name, avatarLabel: personalAvatar, avatarColor: personalColor } : message) } : current);
+    setMembers((current) => current.map((member) => member.id === conversation?.me.id ? { ...member, displayName: name, avatarLabel: personalAvatar, avatarColor: personalColor, voiceDuration: personalDuration } : member));
     setSavingPersonalProfile(false);
   }
 
@@ -450,18 +449,6 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     const result = await response.json() as { inviteUrl: string; expiresAt: string };
     setInviteUrl(result.inviteUrl);
     setInviteExpiresAt(result.expiresAt);
-  }
-
-  async function removeMember(member: GroupMember) {
-    if (!conversation) return;
-    setConfirmRemoveId(null);
-    const params = new URLSearchParams({ spaceId: conversation.space.id, memberId: member.id });
-    const response = await fetch(`/api/v1/manage/members?${params.toString()}`, { method: 'DELETE' }).catch(() => null);
-    if (!response?.ok) {
-      window.alert('はずせませんでした。');
-      return;
-    }
-    setMembers((current) => current.filter((entry) => entry.id !== member.id));
   }
 
   async function deleteMessage(messageId: string) {
@@ -589,7 +576,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
               </div>
             </div>
             <div className="settings-row">
-              {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <label>話す時間<select value={personalDuration} onChange={(event) => { const duration = Number(event.target.value); setPersonalDuration(duration); window.localStorage.setItem(`family-chat-voice-duration-${conversation.space.id}`, String(duration)); }}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>}
+              {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <label>話す時間<select value={personalDuration} onChange={(event) => setPersonalDuration(Number(event.target.value))}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>}
               <button className="personal-save" type="button" onClick={savePersonalProfile} disabled={savingPersonalProfile}>{savingPersonalProfile ? '保存中…' : '保存'}</button>
             </div>
             <hr className="settings-divider" />
@@ -605,39 +592,31 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
             </div>}
           </div>
 
-          {canManage(conversation.me.role) && <>
-            <div className="member-setting">
-              <div className="member-setting-header">
-                <strong>メンバー</strong>
-                <button type="button" onClick={() => (inviteUrl ? setInviteUrl('') : createInvite())}>{inviteUrl ? '閉じる' : '追加'}</button>
-              </div>
-              {inviteUrl && <div className="expandable-panel">
-                <small>{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(inviteExpiresAt))}まで</small>
-                <p>{inviteUrl}</p>
-                <button type="button" onClick={() => navigator.clipboard.writeText(inviteUrl)}>リンクをコピー</button>
-                {inviteQr && <img src={inviteQr} alt="家族を招待するQRコード" />}
-              </div>}
-              <hr className="settings-divider" />
-              <ul>
-                {members.map((member) => (
-                  <li key={member.id}>
-                    <span className="message-avatar" style={{ background: member.avatarColor ?? '#3f7d61' }}>{member.avatarLabel ?? member.displayName.slice(0, 1)}</span>
-                    <span className="member-name">{member.displayName}</span>
-                    {member.role === 'owner' && <span className="member-role">管理者</span>}
-                    {member.role !== 'owner' && member.id !== conversation.me.id && (confirmRemoveId === member.id
-                      ? <span className="member-confirm">
-                          <button type="button" className="confirm-danger" onClick={() => removeMember(member)}>本当にはずす</button>
-                          <button type="button" className="confirm-safe" onClick={() => setConfirmRemoveId(null)}>やめる</button>
-                        </span>
-                      : <button type="button" aria-label={`${member.displayName}さんをはずす`} onClick={() => setConfirmRemoveId(member.id)}>はずす</button>)}
-                  </li>
-                ))}
-              </ul>
-              <div className="admin-links-setting">
-                <a className="admin-tool-link" href={`/admin/${encodeURIComponent(conversation.space.id)}`} target="_blank" rel="noreferrer">管理ツールを開く</a>
-              </div>
+          <div className="member-setting">
+            <div className="member-setting-header">
+              <strong>メンバー</strong>
+              <button type="button" onClick={() => (inviteUrl ? setInviteUrl('') : createInvite())}>{inviteUrl ? '閉じる' : '追加'}</button>
             </div>
-          </>}
+            {inviteUrl && <div className="expandable-panel">
+              <small>{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(inviteExpiresAt))}まで</small>
+              <p>{inviteUrl}</p>
+              <button type="button" onClick={() => navigator.clipboard.writeText(inviteUrl)}>リンクをコピー</button>
+              {inviteQr && <img src={inviteQr} alt="家族を招待するQRコード" />}
+            </div>}
+            <hr className="settings-divider" />
+            <ul>
+              {members.map((member) => (
+                <li key={member.id}>
+                  <span className="message-avatar" style={{ background: member.avatarColor ?? '#3f7d61' }}>{member.avatarLabel ?? member.displayName.slice(0, 1)}</span>
+                  <span className="member-name">{member.displayName}</span>
+                  {member.role === 'owner' && <span className="member-role">管理者</span>}
+                </li>
+              ))}
+            </ul>
+            {canManage(conversation.me.role) && <div className="admin-links-setting">
+              <a className="admin-tool-link" href={`/admin/${encodeURIComponent(conversation.space.id)}`} target="_blank" rel="noreferrer">管理ツールを開く</a>
+            </div>}
+          </div>
         </section>}
 
         <div className="timeline" aria-label="家族の会話" aria-live="polite" ref={timelineRef}>

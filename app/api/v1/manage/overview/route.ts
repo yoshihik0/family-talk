@@ -1,7 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { identities, spaceMembers, spaces, type JsonObject } from '@/db/schema';
-import { requireHostForSpace } from '@/lib/auth/authorize';
 import { getDeviceSession } from '@/lib/auth/session';
 
 export async function GET(request: Request) {
@@ -9,8 +8,6 @@ export async function GET(request: Request) {
   const session = await getDeviceSession(request, requestedSpaceId || undefined);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
   const spaceId = requestedSpaceId || session.spaceId;
-  const auth = await requireHostForSpace(request, spaceId);
-  if ('error' in auth) return auth.error;
 
   const [space] = await getDb().select({ name: spaces.name, settings: spaces.settings }).from(spaces).where(eq(spaces.id, spaceId)).limit(1);
   const appProfile = (space?.settings as JsonObject | undefined)?.appProfile as JsonObject | undefined;
@@ -32,6 +29,7 @@ export async function GET(request: Request) {
   members.sort((a, b) => (a.role === 'owner' ? -1 : b.role === 'owner' ? 1 : 0));
 
   return Response.json({
+    viewerRole: session.role,
     space: {
       id: spaceId,
       name: space?.name ?? '',
@@ -42,6 +40,7 @@ export async function GET(request: Request) {
       ...member,
       avatarLabel: typeof (metadata as JsonObject)?.avatarLabel === 'string' ? (metadata as JsonObject).avatarLabel : undefined,
       avatarColor: typeof (metadata as JsonObject)?.avatarColor === 'string' ? (metadata as JsonObject).avatarColor : undefined,
+      voiceDuration: typeof (metadata as JsonObject)?.voiceDuration === 'number' ? (metadata as JsonObject).voiceDuration : undefined,
     })),
   });
 }
