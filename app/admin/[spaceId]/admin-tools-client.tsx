@@ -6,6 +6,8 @@ import { UPDATE_INSTRUCTIONS_PROMPT } from '@/lib/text/update-instructions';
 import { PROFILE_COLORS } from '@/lib/theme/colors';
 import { compareVersions } from '@/lib/text/version';
 
+const MULTI_INVITE_MAX_USES = 50;
+
 type UpdateNotice = { maxVersion: string; message: string };
 type Member = {
   id: string;
@@ -40,6 +42,12 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [deviceQr, setDeviceQr] = useState('');
   const [creatingDeviceLink, setCreatingDeviceLink] = useState(false);
 
+  const [multiInviteUrl, setMultiInviteUrl] = useState('');
+  const [multiInviteExpiresAt, setMultiInviteExpiresAt] = useState('');
+  const [multiInviteQr, setMultiInviteQr] = useState('');
+  const [multiInviteDays, setMultiInviteDays] = useState(7);
+  const [creatingMultiInvite, setCreatingMultiInvite] = useState(false);
+
   const [currentVersion, setCurrentVersion] = useState('');
   const [latestVersion, setLatestVersion] = useState('');
   const [notices, setNotices] = useState<UpdateNotice[]>([]);
@@ -72,6 +80,11 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     if (deviceUrl) QRCode.toDataURL(deviceUrl, { margin: 1, width: 180 }).then(setDeviceQr).catch(() => setDeviceQr(''));
     else setDeviceQr('');
   }, [deviceUrl]);
+
+  useEffect(() => {
+    if (multiInviteUrl) QRCode.toDataURL(multiInviteUrl, { margin: 1, width: 180 }).then(setMultiInviteQr).catch(() => setMultiInviteQr(''));
+    else setMultiInviteQr('');
+  }, [multiInviteUrl]);
 
   // ウェブページの読み込みだけで済む、副作用のない確認なので自動で行う。
   useEffect(() => {
@@ -133,6 +146,23 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     const result = await response.json() as { deviceUrl: string; expiresAt: string };
     setDeviceUrl(result.deviceUrl);
     setDeviceExpiresAt(result.expiresAt);
+  }
+
+  async function createMultiInvite() {
+    setCreatingMultiInvite(true);
+    const response = await fetch('/api/v1/manage/invites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spaceId, multiUse: true, expiresInDays: multiInviteDays }),
+    }).catch(() => null);
+    setCreatingMultiInvite(false);
+    if (!response?.ok) {
+      window.alert('招待リンクを作れませんでした。');
+      return;
+    }
+    const result = await response.json() as { inviteUrl: string; expiresAt: string };
+    setMultiInviteUrl(result.inviteUrl);
+    setMultiInviteExpiresAt(result.expiresAt);
   }
 
   async function saveMemberProfile(memberId: string) {
@@ -279,6 +309,21 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                   </li>
                 ))}
               </ul>
+            </div>
+
+            <div className="admin-tool-row admin-tool-row-column">
+              <strong>友人・グループを招待</strong>
+              <small>期限内であれば何人でも参加できる、共有用の招待リンクです(最大{MULTI_INVITE_MAX_USES}人まで)。</small>
+              <div className="settings-row">
+                <label>有効期限<select value={multiInviteDays} onChange={(event) => setMultiInviteDays(Number(event.target.value))}><option value={1}>1日</option><option value={3}>3日</option><option value={7}>7日</option></select></label>
+                <button className="personal-save" type="button" onClick={createMultiInvite} disabled={creatingMultiInvite}>{creatingMultiInvite ? '発行中…' : '発行'}</button>
+              </div>
+              {multiInviteUrl && <div className="expandable-panel">
+                <small>{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(multiInviteExpiresAt))}まで有効です。</small>
+                <p>{multiInviteUrl}</p>
+                <button type="button" onClick={() => navigator.clipboard.writeText(multiInviteUrl)}>リンクをコピー</button>
+                {multiInviteQr && <img src={multiInviteQr} alt="招待QRコード" />}
+              </div>}
             </div>
 
             <div className="admin-tool-row admin-tool-row-column">
