@@ -101,6 +101,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   }
 
   function startEditMember(member: Member) {
+    setConfirmDeleteId(null);
     setEditingMemberId(member.id);
     setEditName(member.displayName);
     setEditIcon(member.avatarLabel ?? member.displayName.slice(0, 1));
@@ -207,15 +208,9 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                   <li key={member.id}>
                     <div className="admin-member-row">
                       <span className="message-avatar" style={{ background: member.avatarColor ?? '#3f7d61' }}>{member.avatarLabel ?? member.displayName.slice(0, 1)}</span>
-                      <span className="member-name">{member.displayName}</span>
-                      {member.role === 'owner' && <span className="member-role">管理者</span>}
+                      <span className="member-name">{member.displayName}{member.role === 'owner' && '（管理者）'}</span>
                       <button type="button" onClick={() => (editingMemberId === member.id ? setEditingMemberId(null) : startEditMember(member))}>{editingMemberId === member.id ? '閉じる' : '編集'}</button>
-                      {member.role !== 'owner' && (confirmDeleteId === member.id
-                        ? <span className="member-confirm">
-                            <button type="button" className="confirm-danger" onClick={() => deleteMember(member.id)}>本当に削除</button>
-                            <button type="button" className="confirm-safe" onClick={() => setConfirmDeleteId(null)}>やめる</button>
-                          </span>
-                        : <button type="button" onClick={() => setConfirmDeleteId(member.id)}>削除</button>)}
+                      {member.role !== 'owner' && <button type="button" onClick={() => { if (confirmDeleteId === member.id) { setConfirmDeleteId(null); } else { setConfirmDeleteId(member.id); setEditingMemberId(null); } }}>{confirmDeleteId === member.id ? '閉じる' : '削除'}</button>}
                     </div>
                     {editingMemberId === member.id && (
                       <div className="personal-settings-main admin-member-edit">
@@ -232,6 +227,14 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                         <div className="settings-row">
                           <label>話す時間<select value={editDuration} onChange={(event) => setEditDuration(Number(event.target.value))}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>
                           <button className="personal-save" type="button" onClick={() => saveMemberProfile(member.id)} disabled={savingMemberId === member.id}>{savingMemberId === member.id ? '保存中…' : '保存'}</button>
+                        </div>
+                      </div>
+                    )}
+                    {confirmDeleteId === member.id && (
+                      <div className="personal-settings-main admin-member-edit">
+                        <div className="settings-row settings-row-right">
+                          <button type="button" className="confirm-danger" onClick={() => deleteMember(member.id)}>本当に削除</button>
+                          <button type="button" className="confirm-safe" onClick={() => setConfirmDeleteId(null)}>やめる</button>
                         </div>
                       </div>
                     )}

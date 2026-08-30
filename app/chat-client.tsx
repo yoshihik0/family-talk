@@ -249,12 +249,21 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   }, [settingsOpen]);
 
   // メンバー一覧は全員が見られるので、設定を開いたときに取りに行く。
+  // 自分の設定側の表示も、開くたびに最新のconversation.meへ合わせ直す
+  // (管理ツール側でリモート修正された場合など、定期更新だけでは
+  // このプレビューまでは同期されないため)。
   useEffect(() => {
     if (!settingsOpen || !conversation) return;
+    setPersonalName(conversation.me.displayName);
+    setPersonalAvatar(conversation.me.metadata?.avatarLabel ?? conversation.me.displayName.slice(0, 1));
+    setPersonalColor(conversation.me.metadata?.avatarColor ?? profileColors[0]);
+    const savedDuration = Number(conversation.me.metadata?.voiceDuration);
+    setPersonalDuration(savedDuration === 15 || savedDuration === 30 || savedDuration === 60 ? savedDuration : personalDuration || 30);
     fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(conversation.space.id)}`, { cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<{ members: GroupMember[] }> : null)
       .then((data) => setMembers(data?.members ?? []))
       .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen, conversation?.space.id]);
 
   useEffect(() => {
@@ -456,7 +465,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     setConfirmDeleteId(null);
     const response = await fetch(`/api/v1/messages?spaceId=${encodeURIComponent(conversation.space.id)}&messageId=${encodeURIComponent(messageId)}`, { method: 'DELETE' }).catch(() => null);
     if (!response?.ok) {
-      window.alert('30分を過ぎたか、すでに削除されています。');
+      window.alert('1日を過ぎたか、すでに削除されています。');
       return;
     }
     if (timelineRef.current) {
@@ -559,7 +568,10 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
         </header>
 
         {settingsOpen && <section className="settings-panel" aria-label="設定">
-          <button className="personal-settings-close" type="button" aria-label="閉じる" onClick={() => setSettingsOpen(false)}>×</button>
+          <div className="settings-panel-topbar">
+            <button className="personal-settings-close" type="button" aria-label="閉じる" onClick={() => setSettingsOpen(false)}>×</button>
+          </div>
+          <div className="settings-panel-body">
           <div className="personal-settings-main">
             <div className="settings-heading">
               <div className="setup-icon-preview" aria-hidden="true" style={{ background: personalColor }}>{personalAvatar || conversation.me.displayName.slice(0, 1)}</div>
@@ -595,7 +607,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
           <div className="member-setting">
             <div className="member-setting-header">
               <strong>メンバー</strong>
-              <button type="button" onClick={() => (inviteUrl ? setInviteUrl('') : createInvite())}>{inviteUrl ? '閉じる' : '追加'}</button>
+              <button type="button" onClick={() => (inviteUrl ? setInviteUrl('') : createInvite())}>{inviteUrl ? '閉じる' : 'メンバーを追加'}</button>
             </div>
             {inviteUrl && <div className="expandable-panel">
               <small>{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(inviteExpiresAt))}まで</small>
@@ -608,14 +620,14 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
               {members.map((member) => (
                 <li key={member.id}>
                   <span className="message-avatar" style={{ background: member.avatarColor ?? '#3f7d61' }}>{member.avatarLabel ?? member.displayName.slice(0, 1)}</span>
-                  <span className="member-name">{member.displayName}</span>
-                  {member.role === 'owner' && <span className="member-role">管理者</span>}
+                  <span className="member-name">{member.displayName}{member.role === 'owner' && '（管理者）'}</span>
                 </li>
               ))}
             </ul>
             {canManage(conversation.me.role) && <div className="admin-links-setting">
               <a className="admin-tool-link" href={`/admin/${encodeURIComponent(conversation.space.id)}`} target="_blank" rel="noreferrer">管理ツールを開く</a>
             </div>}
+          </div>
           </div>
         </section>}
 
@@ -624,7 +636,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
           {conversation.messages.map((message, index) => {
             const mine = message.senderId === conversation.me.id;
             const time = new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.createdAt));
-            const canDelete = canManage(conversation.me.role) || (mine && Date.now() - new Date(message.createdAt).getTime() <= 30 * 60 * 1000);
+            const canDelete = canManage(conversation.me.role) || (mine && Date.now() - new Date(message.createdAt).getTime() <= 24 * 60 * 60 * 1000);
             return (
               <Fragment key={message.id}>
                 {(index === 0 || dateKey(conversation.messages[index - 1].createdAt) !== dateKey(message.createdAt)) && <p className="date-divider"><span>{dateLabel(message.createdAt)}</span></p>}

@@ -202,8 +202,10 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .personal-menu-button:hover, .personal-menu-button[aria-expanded="true"] { background: #edf3ef; border-color: var(--line); }
 .personal-menu-button span { display: block; width: 15px; height: 2px; background: currentColor; border-radius: 2px; }
 .personal-menu-button svg { width: 19px; height: 19px; fill: currentColor; }
-.settings-panel { position: relative; display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 20px 24px; max-height: min(62dvh, 620px); padding: 16px 48px 17px 24px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; color: var(--ink); background: #dddddd; border-bottom: 1px solid var(--line); }
-.settings-panel > .personal-settings-main, .settings-panel > .member-setting { flex: 1 1 258px; }
+.settings-panel { display: flex; flex-direction: column; flex: 0 0 auto; gap: 4px; max-height: min(62dvh, 620px); padding: 8px 20px 17px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; color: var(--ink); background: #dddddd; border-bottom: 1px solid var(--line); }
+.settings-panel-topbar { display: flex; justify-content: flex-end; }
+.settings-panel-body { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 20px 24px; }
+.settings-panel-body > .personal-settings-main, .settings-panel-body > .member-setting { flex: 1 1 258px; }
 .personal-settings-main { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 .member-setting { display: flex; align-items: center; flex-wrap: wrap; gap: 9px 12px; align-content: flex-start; }
 .member-setting-header > strong { font-size: 13px; font-weight: 800; }
@@ -221,13 +223,11 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .member-setting ul { display: flex; width: 100%; flex-direction: column; gap: 7px; margin: 0; padding: 0; list-style: none; }
 .member-setting li { display: flex; align-items: center; gap: 9px; font-size: 13px; }
 .member-setting .member-name { flex: 1 1 auto; overflow-wrap: anywhere; }
-.member-setting .member-role { color: var(--muted); font-size: 11px; font-weight: 800; }
 .member-setting button { padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
 .member-confirm { display: flex; flex: 0 0 auto; gap: 6px; }
 .admin-member-list { display: flex; width: 100%; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .admin-member-row { display: flex; align-items: center; gap: 9px; font-size: 13px; }
 .admin-member-row .member-name { flex: 1 1 auto; overflow-wrap: anywhere; }
-.admin-member-row .member-role { color: var(--muted); font-size: 11px; font-weight: 800; }
 .admin-member-row button { flex: 0 0 auto; padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
 .admin-member-edit { margin-top: 10px; padding: 12px; background: var(--context-pale); border-radius: 10px; }
 .admin-links-setting { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; width: 100%; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
@@ -236,7 +236,7 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .version-row button { padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; }
 button.confirm-danger { color: #a1483f; background: #f6e6e4; border-color: #e3bcb7; }
 button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0; }
-.personal-settings-close { position: absolute; top: 7px; right: 10px; width: 28px; height: 28px; padding: 0; color: var(--muted); background: transparent; border: 0; font-size: 20px; }
+.personal-settings-close { width: 28px; height: 28px; padding: 0; color: var(--muted); background: transparent; border: 0; font-size: 20px; }
 .expandable-panel { display: flex; width: 100%; align-items: center; flex-wrap: wrap; gap: 9px 12px; margin-top: 4px; }
 .expandable-panel small { width: 100%; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .expandable-panel p { width: 100%; margin: 0; overflow-wrap: anywhere; font-size: 11px; }
@@ -291,9 +291,10 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
   .conversation-header { padding: 16px; }
   .text-size-control button { min-width: 31px; min-height: 34px; padding-inline: 6px; }
   .timeline { padding-inline: 14px; }
-  .settings-panel { gap: 15px; padding: 14px 42px 16px 16px; }
-  .settings-panel > .personal-settings-main, .settings-panel > .member-setting { flex-basis: 100%; }
-  .settings-panel > div + div { padding-top: 14px; border-top: 1px solid var(--line); }
+  .settings-panel { padding: 6px 16px 16px; }
+  .settings-panel-body { gap: 15px; }
+  .settings-panel-body > .personal-settings-main, .settings-panel-body > .member-setting { flex-basis: 100%; }
+  .settings-panel-body > div + div { padding-top: 14px; border-top: 1px solid var(--line); }
   .composer { padding-inline: 12px; }
 }
 

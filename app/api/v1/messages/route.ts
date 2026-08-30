@@ -127,8 +127,8 @@ export async function DELETE(request: Request) {
   if (!isAdmin) filters.push(eq(records.createdBy, session.identityId));
   const [message] = await getDb().select().from(records).where(and(...filters)).limit(1);
   if (!message) return Response.json({ error: 'message_not_found' }, { status: 404 });
-  // 管理者は自分以外の発言も、期限を気にせず削除できる。本人はこれまで通り30分以内のみ。
-  if (!isAdmin && Date.now() - message.createdAt.getTime() > 30 * 60 * 1000) return Response.json({ error: 'message_delete_window_expired' }, { status: 403 });
+  // 管理者は自分以外の発言も、期限を気にせず削除できる。本人はこれまで通り1日以内のみ。
+  if (!isAdmin && Date.now() - message.createdAt.getTime() > 24 * 60 * 60 * 1000) return Response.json({ error: 'message_delete_window_expired' }, { status: 403 });
   const now = new Date();
   await getDb().update(records).set({ status: 'deleted', deletedAt: now, updatedAt: now }).where(eq(records.id, messageId));
   return Response.json({ deleted: messageId });
