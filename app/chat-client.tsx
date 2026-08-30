@@ -16,7 +16,7 @@ type Message = {
 
 type ConversationPayload = {
   space: { id: string; name: string; settings: Record<string, unknown> };
-  me: { id: string; displayName: string; role: string; metadata?: { avatarLabel?: string; avatarColor?: string; voiceDuration?: number } };
+  me: { id: string; displayName: string; role: string; metadata?: { avatarLabel?: string; avatarColor?: string; voiceDuration?: number; canInvite?: boolean } };
   messages: Message[];
   hasMore: boolean;
 };
@@ -628,7 +628,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
           <div className="member-setting">
             <div className="member-setting-header">
               <strong>メンバー</strong>
-              <button type="button" onClick={() => (inviteUrl ? setInviteUrl('') : createInvite())}>{inviteUrl ? '閉じる' : 'メンバーを追加'}</button>
+              {(canManage(conversation.me.role) || conversation.me.metadata?.canInvite === true) && <button type="button" onClick={() => (inviteUrl ? setInviteUrl('') : createInvite())}>{inviteUrl ? '閉じる' : 'メンバーを追加'}</button>}
             </div>
             {inviteUrl && <div className="expandable-panel">
               <small>{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(inviteExpiresAt))}まで</small>

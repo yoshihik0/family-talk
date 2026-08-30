@@ -13,8 +13,10 @@ export async function POST(request: Request) {
   const session = await getDeviceSession(request, requestedSpaceId || undefined);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
   const spaceId = requestedSpaceId || session.spaceId;
+  const isHost = session.role === 'owner' || session.role === 'host';
 
-  // 通常の招待(1人・1日間)は誰でも作れる。複数人向け・期限指定は管理者限定。
+  // 通常の招待(1人・1日間)は、管理者か「ユーザー追加を許可」されたメンバーだけが作れる。
+  // 複数人向け・期限指定は管理者限定。
   let maxUses = 1;
   let expiresInDays = 1;
   if (body?.multiUse === true) {
@@ -23,6 +25,8 @@ export async function POST(request: Request) {
     maxUses = MULTI_USE_MAX_USES;
     const requestedExpiresInDays = Number(body?.expiresInDays);
     expiresInDays = Number.isInteger(requestedExpiresInDays) && requestedExpiresInDays >= 1 && requestedExpiresInDays <= MULTI_USE_MAX_DAYS ? requestedExpiresInDays : 1;
+  } else if (!isHost && session.identityMetadata?.canInvite !== true) {
+    return Response.json({ error: 'forbidden' }, { status: 403 });
   }
 
   const [space] = await getDb().select({ settings: spaces.settings }).from(spaces).where(eq(spaces.id, spaceId)).limit(1);

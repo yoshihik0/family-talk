@@ -42,6 +42,7 @@ export async function GET(request: Request) {
       avatarLabel: typeof (metadata as JsonObject)?.avatarLabel === 'string' ? (metadata as JsonObject).avatarLabel : undefined,
       avatarColor: typeof (metadata as JsonObject)?.avatarColor === 'string' ? (metadata as JsonObject).avatarColor : undefined,
       voiceDuration: typeof (metadata as JsonObject)?.voiceDuration === 'number' ? (metadata as JsonObject).voiceDuration : undefined,
+      canInvite: (metadata as JsonObject)?.canInvite === true,
     })),
   });
 }

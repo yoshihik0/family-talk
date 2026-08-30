@@ -34,6 +34,7 @@ export async function PATCH(request: Request) {
     avatarLabel?: unknown;
     avatarColor?: unknown;
     voiceDuration?: unknown;
+    canInvite?: unknown;
   } | null;
   const requestedSpaceId = typeof body?.spaceId === 'string' ? body.spaceId : '';
   const auth = await requireHostForSpace(request, requestedSpaceId);
@@ -47,6 +48,7 @@ export async function PATCH(request: Request) {
   const avatarColor = typeof body?.avatarColor === 'string' ? body.avatarColor : '';
   const requestedVoiceDuration = Number(body?.voiceDuration);
   const voiceDuration = requestedVoiceDuration === 15 || requestedVoiceDuration === 30 || requestedVoiceDuration === 60 ? requestedVoiceDuration : 30;
+  const canInvite = body?.canInvite === true;
   if (!displayName || displayName.length > 40 || !isSingleGrapheme(avatarLabel) || !/^#[0-9a-f]{6}$/i.test(avatarColor)) {
     return Response.json({ error: 'invalid_member_profile' }, { status: 400 });
   }
@@ -58,9 +60,9 @@ export async function PATCH(request: Request) {
 
   await getDb().update(identities).set({
     displayName,
-    metadata: { ...(member.metadata ?? {}), avatarLabel, avatarColor, voiceDuration },
+    metadata: { ...(member.metadata ?? {}), avatarLabel, avatarColor, voiceDuration, canInvite },
     updatedAt: new Date(),
   }).where(eq(identities.id, memberId));
 
-  return Response.json({ member: { id: memberId, displayName, avatarLabel, avatarColor, voiceDuration } });
+  return Response.json({ member: { id: memberId, displayName, avatarLabel, avatarColor, voiceDuration, canInvite } });
 }

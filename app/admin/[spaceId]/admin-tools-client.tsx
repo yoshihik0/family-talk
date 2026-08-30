@@ -16,6 +16,7 @@ type Member = {
   avatarLabel?: string;
   avatarColor?: string;
   voiceDuration?: number;
+  canInvite?: boolean;
 };
 
 export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
@@ -35,6 +36,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [editIcon, setEditIcon] = useState('');
   const [editColor, setEditColor] = useState(PROFILE_COLORS[0]);
   const [editDuration, setEditDuration] = useState(30);
+  const [editCanInvite, setEditCanInvite] = useState(false);
   const [savingMemberId, setSavingMemberId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deviceUrl, setDeviceUrl] = useState('');
@@ -132,6 +134,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     setEditIcon(member.avatarLabel ?? member.displayName.slice(0, 1));
     setEditColor(member.avatarColor ?? PROFILE_COLORS[0]);
     setEditDuration(member.voiceDuration === 15 || member.voiceDuration === 60 ? member.voiceDuration : 30);
+    setEditCanInvite(member.canInvite === true);
     setDeviceUrl('');
   }
 
@@ -175,14 +178,14 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     const response = await fetch('/api/v1/manage/members', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spaceId, memberId, displayName: name, avatarLabel: editIcon, avatarColor: editColor, voiceDuration: editDuration }),
+      body: JSON.stringify({ spaceId, memberId, displayName: name, avatarLabel: editIcon, avatarColor: editColor, voiceDuration: editDuration, canInvite: editCanInvite }),
     }).catch(() => null);
     setSavingMemberId(null);
     if (!response?.ok) {
       window.alert('名前は40文字以内、アイコンは1つの文字で設定してください。');
       return;
     }
-    setMembers((current) => current.map((member) => member.id === memberId ? { ...member, displayName: name, avatarLabel: editIcon, avatarColor: editColor, voiceDuration: editDuration } : member));
+    setMembers((current) => current.map((member) => member.id === memberId ? { ...member, displayName: name, avatarLabel: editIcon, avatarColor: editColor, voiceDuration: editDuration, canInvite: editCanInvite } : member));
     setEditingMemberId(null);
   }
 
@@ -282,6 +285,9 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                         </div>
                         <div className="settings-row">
                           <label>話す時間<select value={editDuration} onChange={(event) => setEditDuration(Number(event.target.value))}><option value={15}>15秒</option><option value={30}>30秒</option><option value={60}>60秒</option></select></label>
+                        </div>
+                        <div className="settings-row">
+                          <label>ユーザー追加<select className="wide-input" value={editCanInvite ? '1' : '0'} onChange={(event) => setEditCanInvite(event.target.value === '1')}><option value="0">不許可（デフォルト）</option><option value="1">許可</option></select></label>
                           <button className="personal-save" type="button" onClick={() => saveMemberProfile(member.id)} disabled={savingMemberId === member.id}>{savingMemberId === member.id ? '保存中…' : '保存'}</button>
                         </div>
                         <hr className="settings-divider" />
