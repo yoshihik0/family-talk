@@ -1,10 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function DeviceLinkClient({ token }: { token: string }) {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [avatarLabel, setAvatarLabel] = useState('');
+  const [avatarColor, setAvatarColor] = useState('#3f7d61');
+
+  useEffect(() => {
+    fetch(`/api/v1/device-links/claim?token=${encodeURIComponent(token)}`, { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() as Promise<{ displayName: string; avatarLabel: string; avatarColor: string }> : null)
+      .then((data) => { if (data) { setDisplayName(data.displayName); setAvatarLabel(data.avatarLabel); setAvatarColor(data.avatarColor); } })
+      .catch(() => undefined);
+  }, [token]);
 
   async function connect() {
     if (connecting) return;
@@ -17,5 +27,5 @@ export default function DeviceLinkClient({ token }: { token: string }) {
     window.location.href = `/s/${encodeURIComponent(result.spaceId)}`;
   }
 
-  return <main className="join-shell"><section className="join-card"><div className="join-mark" aria-hidden="true">端</div><p className="join-eyebrow">別の端末につなぎます</p><h1>同じ名前で使う</h1><p className="join-description">今使っているメンバーとして、この端末を追加します。</p>{error && <p className="join-error" role="alert">この接続リンクは使用できません。元の端末で作り直してください。</p>}<button type="button" onClick={connect} disabled={connecting}>{connecting ? 'つないでいます…' : 'この端末で使う'}</button></section></main>;
+  return <main className="join-shell"><section className="join-card"><div className="join-mark" aria-hidden="true" style={{ background: avatarColor }}>{avatarLabel}</div><p className="join-eyebrow">別の端末につなぎます</p><h1>{displayName ? `${displayName}として使う` : '別の端末で使う'}</h1><p className="join-description">個人のアイコンです。こちらの端末でも利用します。</p>{error && <p className="join-error" role="alert">この接続リンクは使用できません。元の端末で作り直してください。</p>}<button type="button" onClick={connect} disabled={connecting}>{connecting ? 'つないでいます…' : 'この端末で使う'}</button></section></main>;
 }

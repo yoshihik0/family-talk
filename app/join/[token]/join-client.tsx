@@ -8,11 +8,12 @@ export default function JoinClient({ token }: { token: string }) {
   const [error, setError] = useState(false);
   const [icon, setIcon] = useState('🏡');
   const [color, setColor] = useState('#3f7d61');
+  const [spaceName, setSpaceName] = useState('');
 
   useEffect(() => {
     fetch(`/api/v1/join?token=${encodeURIComponent(token)}`, { cache: 'no-store' })
-      .then((response) => response.ok ? response.json() as Promise<{ icon: string; color: string }> : null)
-      .then((data) => { if (data) { setIcon(data.icon); setColor(data.color); } })
+      .then((response) => response.ok ? response.json() as Promise<{ spaceName: string; icon: string; color: string }> : null)
+      .then((data) => { if (data) { setIcon(data.icon); setColor(data.color); setSpaceName(data.spaceName); } })
       .catch(() => undefined);
   }, [token]);
 
@@ -41,8 +42,8 @@ export default function JoinClient({ token }: { token: string }) {
       <section className="join-card">
         <div className="join-mark" aria-hidden="true" style={{ background: color }}>{icon}</div>
         <p className="join-eyebrow">招待されています</p>
-        <h1>家族のおしゃべりに参加</h1>
-        <p className="join-description">この端末で表示する名前を入力してください。参加後は、この家族の会話だけが開きます。</p>
+        <h1>{spaceName ? `「${spaceName}」に参加` : '参加する'}</h1>
+        <p className="join-description">名前を入力してください</p>
         <form onSubmit={join}>
           <label htmlFor="display-name">あなたの名前</label>
           <input id="display-name" value={displayName} maxLength={30} autoComplete="name" onChange={(event) => setDisplayName(event.target.value)} placeholder="例：お母さん" />
