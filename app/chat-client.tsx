@@ -139,6 +139,11 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const voiceTimerRef = useRef<number | null>(null);
   const voiceManualStopRef = useRef(false);
   const voiceFinalTranscriptRef = useRef('');
+  const voicePendingSubmitRef = useRef(false);
+  const draftRef = useRef('');
+  const conversationRef = useRef<ConversationPayload | null>(null);
+  draftRef.current = draft;
+  conversationRef.current = conversation;
 
   useEffect(() => {
     fetchConversation(fixedSpaceId)
@@ -339,17 +344,16 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     window.location.href = `/s/${encodeURIComponent(result.spaceId)}`;
   }
 
-  async function submitMessage(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (listening) stopVoiceInput();
-    const text = draft.trim();
-    if (!text || sending) return;
-
+  async function sendMessageText(text: string, spaceId?: string) {
+    if (!text) {
+      setSending(false);
+      return;
+    }
     setSending(true);
     const response = await fetch('/api/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, spaceId: conversation?.space.id }),
+      body: JSON.stringify({ text, spaceId }),
     }).catch(() => null);
 
     if (!response?.ok) {
@@ -367,13 +371,25 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     setSending(false);
   }
 
+  async function submitMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (listening) {
+      // マイクを止めた直後の確定結果はまだ届いていないことがあるので、
+      // ここでは即座に送信せず、認識が完全に終わってから(onendで)送る。
+      voicePendingSubmitRef.current = true;
+      setSending(true);
+      stopVoiceInput();
+      return;
+    }
+    if (sending) return;
+    await sendMessageText(draft.trim(), conversation?.space.id);
+  }
+
   function stopVoiceInput() {
     voiceManualStopRef.current = true;
     if (voiceTimerRef.current !== null) window.clearTimeout(voiceTimerRef.current);
     voiceTimerRef.current = null;
     recognitionRef.current?.stop();
-    recognitionRef.current = null;
-    voiceFinalTranscriptRef.current = '';
     setListening(false);
   }
 
@@ -411,12 +427,21 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       };
       recognition.onerror = () => stopVoiceInput();
       recognition.onend = () => {
-        if (recognitionRef.current !== recognition || voiceManualStopRef.current) return;
-        setDraft((current) => {
-          voiceFinalTranscriptRef.current = current;
-          return current;
-        });
-        beginSession();
+        if (recognitionRef.current !== recognition) return;
+        recognitionRef.current = null;
+        if (!voiceManualStopRef.current) {
+          setDraft((current) => {
+            voiceFinalTranscriptRef.current = current;
+            return current;
+          });
+          beginSession();
+          return;
+        }
+        voiceFinalTranscriptRef.current = '';
+        if (voicePendingSubmitRef.current) {
+          voicePendingSubmitRef.current = false;
+          void sendMessageText(draftRef.current.trim(), conversationRef.current?.space.id);
+        }
       };
       recognitionRef.current = recognition;
       recognition.start();
