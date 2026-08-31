@@ -53,6 +53,7 @@ const textSizeLabels: Record<TextSize, string> = {
   xlarge: '特大',
 };
 import { PROFILE_COLORS as profileColors } from '@/lib/theme/colors';
+import { tintWithWhite } from '@/lib/theme/tint';
 
 // 設定の入口は誰でも同じ歯車ひとつ。管理できる人にだけ、その中身が深くなる。
 function canManage(role: string) {
@@ -658,18 +659,19 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
             const mine = message.senderId === conversation.me.id;
             const time = new Intl.DateTimeFormat('ja-JP', { hour: '2-digit', minute: '2-digit' }).format(new Date(message.createdAt));
             const canDelete = canManage(conversation.me.role) || (mine && Date.now() - new Date(message.createdAt).getTime() <= 24 * 60 * 60 * 1000);
+            const bubbleColor = message.avatarColor ?? '#3f7d61';
             return (
               <Fragment key={message.id}>
                 {(index === 0 || dateKey(conversation.messages[index - 1].createdAt) !== dateKey(message.createdAt)) && <p className="date-divider"><span>{dateLabel(message.createdAt)}</span></p>}
-                <article className={`message ${mine ? 'message-mine' : ''}`} style={{ '--bubble-color': message.avatarColor ?? '#3f7d61' } as CSSProperties}>
-                <div className="message-meta"><span className="message-avatar" style={{ background: message.avatarColor ?? '#3f7d61' }}>{message.avatarLabel ?? message.senderName.slice(0, 1)}</span><strong>{message.senderName}</strong><time dateTime={message.createdAt}>{time}</time>{canDelete && (confirmDeleteId === message.id
+                <article className={`message ${mine ? 'message-mine' : ''}`}>
+                <div className="message-meta"><span className="message-avatar" style={{ background: bubbleColor }}>{message.avatarLabel ?? message.senderName.slice(0, 1)}</span><strong>{message.senderName}</strong><time dateTime={message.createdAt}>{time}</time>{canDelete && (confirmDeleteId === message.id
                   ? <span className="message-confirm">
                       <button type="button" className="confirm-danger" onClick={() => deleteMessage(message.id)}>消す</button>
                       <button type="button" className="confirm-safe" onClick={() => setConfirmDeleteId(null)}>残す</button>
                     </span>
                   : <button className="message-delete" type="button" aria-label="この発言を削除" onClick={() => setConfirmDeleteId(message.id)}>×</button>)}</div>
                 <div className="message-content">
-                  <div className="message-bubble"><p>{message.text}</p></div>
+                  <div className="message-bubble" style={{ background: tintWithWhite(bubbleColor, 10) }}><p>{message.text}</p></div>
                   <button className="read-aloud" type="button" onClick={() => readAloud(message.text)} aria-label={`${message.senderName}のメッセージを読み上げる`}>
                     <svg className="speaker-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Z" /><path d="M16 9.5a4 4 0 0 1 0 5M18.5 7a7.5 7.5 0 0 1 0 10" /></svg>
                   </button>

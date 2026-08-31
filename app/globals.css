@@ -44,7 +44,7 @@ button:disabled { cursor: default; opacity: 0.55; }
 .app-shell {
   min-height: 100dvh;
   padding: 0;
-  background: radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--context-primary) 20%, transparent), transparent 34rem), var(--context-pale);
+  background: radial-gradient(circle at 15% 0%, rgba(47, 107, 79, 0.2), transparent 34rem), var(--context-pale);
 }
 
 .app-shell-loading { display: grid; place-items: center; background: var(--paper); }
@@ -85,7 +85,7 @@ button:disabled { cursor: default; opacity: 0.55; }
   background: var(--paper);
 }
 
-.install-guide { position: fixed; z-index: 20; top: 12px; left: 50%; display: flex; width: min(calc(100% - 24px), 560px); align-items: center; gap: 14px; padding: 13px 42px 13px 15px; transform: translateX(-50%); color: var(--ink); background: white; border: 1px solid color-mix(in srgb, var(--context-primary) 25%, white); border-radius: 14px; box-shadow: 0 8px 28px rgba(30, 55, 40, .18); }
+.install-guide { position: fixed; z-index: 20; top: 12px; left: 50%; display: flex; width: min(calc(100% - 24px), 560px); align-items: center; gap: 14px; padding: 13px 42px 13px 15px; transform: translateX(-50%); color: var(--ink); background: white; border: 1px solid rgb(203, 218, 211); border-radius: 14px; box-shadow: 0 8px 28px rgba(30, 55, 40, .18); }
 .install-guide > div { min-width: 0; flex: 1; }
 .install-guide strong, .install-guide small { display: block; }
 .install-guide strong { font-size: 14px; }
@@ -165,7 +165,7 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
   flex: 1;
   min-height: 58px;
   padding: 14px 16px;
-  background: color-mix(in srgb, var(--bubble-color) 10%, white);
+  background: var(--paper);
   border-radius: 6px 18px 18px;
 }
 
