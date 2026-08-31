@@ -341,6 +341,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
 
   async function submitMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (listening) stopVoiceInput();
     const text = draft.trim();
     if (!text || sending) return;
 
@@ -710,7 +711,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
             {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <button className={`voice-button${listening ? ' listening' : ''}`} type="button" onClick={startVoiceInput}>
               <span className="voice-dot" aria-hidden="true">●</span>{listening ? '聞き取り中…' : '話して入力'}
             </button>}
-            <button className="send-button" type="submit" disabled={!draft.trim() || sending}>{sending ? '送信中' : '送る'}</button>
+            <button className="send-button" type="submit" disabled={(!listening && !draft.trim()) || sending}>{sending ? '送信中' : '送る'}</button>
           </div>
         </form>
       </section>
