@@ -137,6 +137,8 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   const pendingScrollAdjustRef = useRef<{ prevScrollHeight: number; prevScrollTop: number } | null>(null);
   const recognitionRef = useRef<Recognition | null>(null);
   const voiceTimerRef = useRef<number | null>(null);
+  const voiceManualStopRef = useRef(false);
+  const voiceFinalTranscriptRef = useRef('');
 
   useEffect(() => {
     fetchConversation(fixedSpaceId)
@@ -365,10 +367,12 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   }
 
   function stopVoiceInput() {
+    voiceManualStopRef.current = true;
     if (voiceTimerRef.current !== null) window.clearTimeout(voiceTimerRef.current);
     voiceTimerRef.current = null;
     recognitionRef.current?.stop();
     recognitionRef.current = null;
+    voiceFinalTranscriptRef.current = '';
     setListening(false);
   }
 
@@ -387,21 +391,37 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'ja-JP';
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results).map((result) => result[0].transcript).join('');
-      setDraft(transcript);
-    };
-    recognition.onerror = () => stopVoiceInput();
-    recognition.onend = () => {
-      if (recognitionRef.current === recognition) stopVoiceInput();
-    };
-    recognitionRef.current = recognition;
+    voiceManualStopRef.current = false;
+    voiceFinalTranscriptRef.current = '';
     setListening(true);
-    recognition.start();
+
+    // 一部の端末(古いAndroid WebViewなど)は無音を検知すると、指定時間より
+    // かなり早くセッションを打ち切ってしまう。手動停止やタイマー満了でなければ
+    // それまでの文章を保ったまま自動的に聞き取りを再開し、実質的な聞き取り
+    // 時間が短くなりすぎないようにする。
+    const beginSession = () => {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.onresult = (event) => {
+        const sessionTranscript = Array.from(event.results).map((result) => result[0].transcript).join('');
+        setDraft(voiceFinalTranscriptRef.current + sessionTranscript);
+      };
+      recognition.onerror = () => stopVoiceInput();
+      recognition.onend = () => {
+        if (recognitionRef.current !== recognition || voiceManualStopRef.current) return;
+        setDraft((current) => {
+          voiceFinalTranscriptRef.current = current;
+          return current;
+        });
+        beginSession();
+      };
+      recognitionRef.current = recognition;
+      recognition.start();
+    };
+    beginSession();
+
     const configuredDuration = Number((conversation?.space.settings.policy as { voiceDuration?: unknown } | undefined)?.voiceDuration);
     const duration = personalDuration || (configuredDuration === 15 || configuredDuration === 30 || configuredDuration === 60 ? configuredDuration : 30);
     voiceTimerRef.current = window.setTimeout(stopVoiceInput, duration * 1000);
@@ -683,12 +703,12 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
           <div ref={timelineEnd} />
         </div>
 
-        <form className="composer" onSubmit={submitMessage}>
+        <form className={`composer${listening ? ' listening' : ''}`} onSubmit={submitMessage}>
           <label className="sr-only" htmlFor="message">メッセージ</label>
           <textarea id="message" name="message" rows={2} maxLength={2000} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="ここに書きます" />
           <div className="composer-actions">
-            {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <button className="voice-button" type="button" onClick={startVoiceInput}>
-              <span aria-hidden="true">●</span>{listening ? '停止' : '話して入力'}
+            {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <button className={`voice-button${listening ? ' listening' : ''}`} type="button" onClick={startVoiceInput}>
+              <span className="voice-dot" aria-hidden="true">●</span>{listening ? '聞き取り中…' : '話して入力'}
             </button>}
             <button className="send-button" type="submit" disabled={!draft.trim() || sending}>{sending ? '送信中' : '送る'}</button>
           </div>

@@ -284,11 +284,18 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 }
 
 .composer textarea:focus { border-color: var(--context-primary); box-shadow: 0 0 0 4px rgba(47, 107, 79, 0.12); }
+.composer.listening textarea { border-color: #c54b4b; box-shadow: 0 0 0 4px rgba(197, 75, 75, 0.12); }
 .composer-actions { display: grid; grid-template-columns: 1fr 116px; gap: 12px; margin-top: 12px; }
 .composer-actions button { min-height: 52px; border-radius: 14px; font-weight: 800; }
 .voice-button { color: var(--context-strong); background: var(--context-soft); border: 1px solid #bad1c2; }
-.voice-button span { margin-right: 8px; color: #c54b4b; }
+.voice-button .voice-dot { margin-right: 8px; color: #c54b4b; }
 .voice-button:disabled { opacity: 0.7; }
+.voice-button.listening { color: #8a2f2f; background: #fbe9e7; border-color: #e3a9a4; }
+.voice-button.listening .voice-dot { animation: voice-pulse 1.1s ease-in-out infinite; }
+@keyframes voice-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.3; transform: scale(1.3); }
+}
 .send-button { color: white; background: var(--context-primary); border: 1px solid var(--context-primary); font-size: 17px; }
 .send-button:hover { background: var(--context-strong); }
 
