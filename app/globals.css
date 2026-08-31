@@ -42,6 +42,7 @@ button:disabled { cursor: default; opacity: 0.55; }
 }
 
 .app-shell {
+  min-height: 100vh;
   min-height: 100dvh;
   padding: 0;
   background: radial-gradient(circle at 15% 0%, rgba(47, 107, 79, 0.2), transparent 34rem), var(--context-pale);
@@ -77,6 +78,7 @@ button:disabled { cursor: default; opacity: 0.55; }
 .conversation {
   display: flex;
   width: 100%;
+  height: 100vh;
   height: 100dvh;
   min-height: 0;
   flex-direction: column;
@@ -205,7 +207,7 @@ h1 { margin: 0; font-size: var(--title-font-size); line-height: 1.2; }
 .personal-menu-button:hover, .personal-menu-button[aria-expanded="true"] { background: #edf3ef; border-color: var(--line); }
 .personal-menu-button span { display: block; width: 15px; height: 2px; background: currentColor; border-radius: 2px; }
 .personal-menu-button svg { width: 19px; height: 19px; fill: currentColor; }
-.settings-panel { display: flex; flex-direction: column; flex: 0 0 auto; gap: 4px; max-height: min(62dvh, 620px); padding: 8px 20px 17px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; color: var(--ink); background: #dddddd; border-bottom: 1px solid var(--line); }
+.settings-panel { display: flex; flex-direction: column; flex: 0 0 auto; gap: 4px; max-height: min(62vh, 620px); max-height: min(62dvh, 620px); padding: 8px 20px 17px; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; color: var(--ink); background: #dddddd; border-bottom: 1px solid var(--line); }
 .settings-panel-topbar { position: sticky; top: 0; z-index: 1; display: flex; justify-content: flex-end; background: transparent; }
 .settings-panel-body { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 20px 24px; }
 .settings-panel-body > .personal-settings-main, .settings-panel-body > .member-setting { flex: 1 1 258px; }
@@ -263,6 +265,7 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
   padding: 16px 18px 18px;
   background: rgba(255, 253, 248, 0.96);
   border-top: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
 }
 
@@ -291,7 +294,7 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 
 @media (max-width: 560px) {
   .app-shell { padding: 0; }
-  .conversation { min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
+  .conversation { min-height: 100vh; min-height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
   .conversation-header { padding: 16px; }
   .text-size-control button { min-width: 31px; min-height: 34px; padding-inline: 6px; }
   .timeline { padding-inline: 14px; }
@@ -310,7 +313,7 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
 }
 
-.join-shell { display: grid; min-height: 100dvh; place-items: center; padding: 24px 16px; background: var(--context-pale); }
+.join-shell { display: grid; min-height: 100vh; min-height: 100dvh; place-items: center; padding: 24px 16px; background: var(--context-pale); }
 .join-card { width: min(100%, 480px); padding: 34px; background: var(--paper); border: 1px solid var(--line); border-radius: 24px; box-shadow: 0 24px 60px rgba(32, 67, 49, .12); }
 .join-mark { display: grid; width: 54px; height: 54px; place-items: center; margin-bottom: 18px; color: white; background: var(--context-primary); border-radius: 17px; font-size: 20px; font-weight: 900; }
 .join-eyebrow { margin: 0 0 5px; color: var(--context-primary); font-size: 13px; font-weight: 800; }
@@ -321,8 +324,8 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 .join-card form > button, .join-card > button { width: 100%; min-height: 50px; margin-top: 16px; color: white; background: var(--context-primary); border: 0; border-radius: 12px; font-size: 16px; font-weight: 800; }
 .join-error { color: #a03939; font-size: 13px; line-height: 1.6; }
 
-.admin-shell { min-height: 100dvh; background: var(--paper); }
-.admin-card { width: 100%; min-height: 100dvh; padding: 28px 20px 40px; background: var(--paper); }
+.admin-shell { min-height: 100vh; min-height: 100dvh; background: var(--paper); }
+.admin-card { width: 100%; min-height: 100vh; min-height: 100dvh; padding: 28px 20px 40px; background: var(--paper); }
 @media (min-width: 860px) {
   .admin-card { max-width: 640px; margin-inline: auto; }
 }
