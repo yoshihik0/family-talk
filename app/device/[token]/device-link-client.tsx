@@ -26,5 +26,5 @@ export default function DeviceLinkClient({ token }: { token: string }) {
     window.location.href = `/s/${encodeURIComponent(result.spaceId)}`;
   }
 
-  return <main className="join-shell"><section className="join-card"><div className="join-mark" aria-hidden="true" style={{ background: avatarColor }}>{avatarLabel}</div><p className="join-eyebrow">別の端末につなぎます</p>{error && <p className="join-error" role="alert">この接続リンクは使用できません。元の端末で作り直してください。</p>}<button type="button" onClick={connect} disabled={connecting}>{connecting ? 'つないでいます…' : 'この端末で使う'}</button></section></main>;
+  return <main className="join-shell"><section className="join-card device-link-card"><div className="join-mark" aria-hidden="true" style={{ background: avatarColor }}>{avatarLabel}</div><p className="join-eyebrow">別の端末につなぎます</p>{error && <p className="join-error" role="alert">この接続リンクは使用できません。元の端末で作り直してください。</p>}<button type="button" onClick={connect} disabled={connecting}>{connecting ? 'つないでいます…' : 'この端末で使う'}</button></section></main>;
 }

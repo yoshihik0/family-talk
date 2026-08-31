@@ -330,6 +330,9 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 .join-card input { width: 100%; padding: 13px 14px; border: 1px solid #bdcac2; border-radius: 11px; font-size: 17px; }
 .join-card form > button, .join-card > button { width: 100%; min-height: 50px; margin-top: 16px; color: white; background: var(--context-primary); border: 0; border-radius: 12px; font-size: 16px; font-weight: 800; }
 .join-error { color: #a03939; font-size: 13px; line-height: 1.6; }
+.device-link-card { text-align: center; }
+.device-link-card .join-mark { margin-inline: auto; }
+.device-link-card .join-eyebrow { margin-bottom: 20px; }
 
 .admin-shell { min-height: 100vh; min-height: 100dvh; background: var(--paper); }
 .admin-card { width: 100%; min-height: 100vh; min-height: 100dvh; padding: 28px 20px 40px; background: var(--paper); }
