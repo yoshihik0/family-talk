@@ -5,9 +5,8 @@ import { getDeviceSession } from '@/lib/auth/session';
 import { isSingleGrapheme } from '@/lib/text/graphemes';
 
 export async function PATCH(request: Request) {
-  const body = await request.json().catch(() => null) as { spaceId?: unknown; displayName?: unknown; avatarLabel?: unknown; avatarColor?: unknown; voiceDuration?: unknown } | null;
-  const spaceId = typeof body?.spaceId === 'string' ? body.spaceId : '';
-  const session = await getDeviceSession(request, spaceId || undefined);
+  const body = await request.json().catch(() => null) as { displayName?: unknown; avatarLabel?: unknown; avatarColor?: unknown; voiceDuration?: unknown } | null;
+  const session = await getDeviceSession(request);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
   const displayName = typeof body?.displayName === 'string' ? body.displayName.trim() : session.displayName;
   const avatarLabel = typeof body?.avatarLabel === 'string' ? body.avatarLabel.trim() : '';

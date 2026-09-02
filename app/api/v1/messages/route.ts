@@ -1,6 +1,6 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { collections, events, identities, records, spaceMembers, spaces } from '@/db/schema';
+import { collections, events, identities, records, spaceMembers } from '@/db/schema';
 import { isNull } from 'drizzle-orm';
 import { getDeviceSession } from '@/lib/auth/session';
 import { createRecord, listRecords } from '@/lib/hub/records';
@@ -14,28 +14,27 @@ async function getMessageCollection(spaceId: string) {
     .limit(1);
   return collection ?? null;
 }
-
-async function getSpaceAccess(identityId: string, spaceId: string) {
-  const [access] = await getDb().select({ spaceId: spaces.id, spaceName: spaces.name, settings: spaces.settings, role: spaceMembers.role })
-    .from(spaceMembers).innerJoin(spaces, eq(spaceMembers.spaceId, spaces.id))
-    .where(and(eq(spaceMembers.identityId, identityId), eq(spaceMembers.spaceId, spaceId))).limit(1);
-  return access ?? null;
-}
-
 const MESSAGES_PAGE_SIZE = 50;
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const requestedSpaceId = url.searchParams.get('spaceId') ?? '';
   const beforeParam = url.searchParams.get('before');
   const before = beforeParam && !Number.isNaN(Date.parse(beforeParam)) ? new Date(beforeParam) : undefined;
-  const session = await getDeviceSession(request, requestedSpaceId || undefined);
+  const session = await getDeviceSession(request);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
-  const spaceId = requestedSpaceId || session.spaceId;
-  const access = await getSpaceAccess(session.identityId, spaceId);
-  if (!access) return Response.json({ error: 'forbidden' }, { status: 403 });
+  const spaceId = session.spaceId;
   const collection = await getMessageCollection(spaceId);
   if (!collection) return Response.json({ error: 'messages_collection_not_found' }, { status: 404 });
+
+  // 管理者の名前は、ログイン情報を失ったときの案内文に使うため端末に控えてもらう。
+  // 15秒ごとのポーリングでは要らないので、初回読み込みのときだけ返す。
+  const admins = url.searchParams.get('withAdmins') === '1'
+    ? (await getDb().select({ displayName: identities.displayName })
+        .from(spaceMembers)
+        .innerJoin(identities, eq(spaceMembers.identityId, identities.id))
+        .where(and(eq(spaceMembers.spaceId, spaceId), inArray(spaceMembers.role, ['owner', 'host'])))
+      ).map((admin) => admin.displayName)
+    : undefined;
 
   const rows = await listRecords({ collectionId: collection.id, kind: 'message', limit: MESSAGES_PAGE_SIZE + 1, before });
   const hasMore = rows.length > MESSAGES_PAGE_SIZE;
@@ -51,22 +50,25 @@ export async function GET(request: Request) {
     avatarLabel: senderMap.get(row.createdBy)?.avatarLabel,
     avatarColor: senderMap.get(row.createdBy)?.avatarColor,
   }));
-  return Response.json({
-    space: { id: access.spaceId, name: access.spaceName, settings: access.settings },
-    me: { id: session.identityId, displayName: session.displayName, role: access.role, metadata: session.identityMetadata },
+  const response = Response.json({
+    space: { id: session.spaceId, name: session.spaceName, settings: session.settings },
+    me: { id: session.identityId, displayName: session.displayName, role: session.role, metadata: session.identityMetadata },
+    admins,
     messages,
     hasMore,
   });
+  // 会話画面を開いているあいだに、端末のCookieの有効期限も一緒に延ばしておく。
+  // ここを通らないと、使い続けていても端末側からトークンが消えてしまう。
+  if (session.renewedCookie) response.headers.append('Set-Cookie', session.renewedCookie);
+  return response;
 }
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as { text?: unknown; spaceId?: unknown } | null;
-  const requestedSpaceId = typeof body?.spaceId === 'string' ? body.spaceId : '';
-  const session = await getDeviceSession(request, requestedSpaceId || undefined);
+  const session = await getDeviceSession(request);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
-  const spaceId = requestedSpaceId || session.spaceId;
-  const access = await getSpaceAccess(session.identityId, spaceId);
-  if (!access || access.role === 'viewer') return Response.json({ error: 'forbidden' }, { status: 403 });
+  if (session.role === 'viewer') return Response.json({ error: 'forbidden' }, { status: 403 });
+  const spaceId = session.spaceId;
 
   const text = typeof body?.text === 'string' ? body.text.trim() : '';
   if (!text || text.length > 2000) {
@@ -112,15 +114,12 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   const url = new URL(request.url);
-  const requestedSpaceId = url.searchParams.get('spaceId') ?? '';
-  const session = await getDeviceSession(request, requestedSpaceId || undefined);
+  const session = await getDeviceSession(request);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
-  const spaceId = requestedSpaceId || session.spaceId;
+  const spaceId = session.spaceId;
   const messageId = url.searchParams.get('messageId');
   if (!messageId) return Response.json({ error: 'message_id_required' }, { status: 400 });
-  const access = await getSpaceAccess(session.identityId, spaceId);
-  if (!access) return Response.json({ error: 'forbidden' }, { status: 403 });
-  const isAdmin = access.role === 'owner' || access.role === 'host';
+  const isAdmin = session.role === 'owner' || session.role === 'host';
   const collection = await getMessageCollection(spaceId);
   if (!collection) return Response.json({ error: 'messages_collection_not_found' }, { status: 404 });
   const filters = [eq(records.id, messageId), eq(records.collectionId, collection.id), isNull(records.deletedAt)];

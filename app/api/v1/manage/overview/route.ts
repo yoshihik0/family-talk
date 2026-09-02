@@ -4,10 +4,9 @@ import { identities, spaceMembers, spaces, type JsonObject } from '@/db/schema';
 import { getDeviceSession } from '@/lib/auth/session';
 
 export async function GET(request: Request) {
-  const requestedSpaceId = new URL(request.url).searchParams.get('spaceId') ?? '';
-  const session = await getDeviceSession(request, requestedSpaceId || undefined);
+  const session = await getDeviceSession(request);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
-  const spaceId = requestedSpaceId || session.spaceId;
+  const spaceId = session.spaceId;
 
   const [space] = await getDb().select({ name: spaces.name, settings: spaces.settings }).from(spaces).where(eq(spaces.id, spaceId)).limit(1);
   const appProfile = (space?.settings as JsonObject | undefined)?.appProfile as JsonObject | undefined;

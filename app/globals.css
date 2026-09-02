@@ -331,8 +331,10 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 .join-card form > button, .join-card > button { width: 100%; min-height: 50px; margin-top: 16px; color: white; background: var(--context-primary); border: 0; border-radius: 12px; font-size: 16px; font-weight: 800; }
 .join-error { color: #a03939; font-size: 13px; line-height: 1.6; }
 .device-link-card { text-align: center; }
-.device-link-card .join-mark { margin-inline: auto; }
-.device-link-card .join-eyebrow { margin-bottom: 20px; }
+/* アイコンと名前を横に並べて「誰としてこの端末を使うか」を一目で示す。 */
+.device-link-identity { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 20px; }
+.device-link-identity .join-mark { margin-bottom: 0; }
+.device-link-name { font-size: 20px; font-weight: 800; }
 
 .admin-shell { min-height: 100vh; min-height: 100dvh; background: var(--paper); }
 .admin-card { width: 100%; min-height: 100vh; min-height: 100dvh; padding: 28px 20px 40px; background: var(--paper); }

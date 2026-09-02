@@ -1,4 +1,3 @@
-import { eq } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { spaces, type JsonObject } from '@/db/schema';
 import { isSingleGrapheme } from '@/lib/text/graphemes';
@@ -7,12 +6,20 @@ function escapeXml(value: string) {
   return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[character] ?? character);
 }
 
+
+// 1デプロイ1グループなので、そのグループを引く。spaceIdは受け取らない
+// (インストール済みPWAが付けてくる旧URLのクエリは、単に無視される)。
+async function getOnlySpace() {
+  const [space] = await getDb()
+    .select({ id: spaces.id, name: spaces.name, settings: spaces.settings, updatedAt: spaces.updatedAt })
+    .from(spaces)
+    .limit(1);
+  return space ?? null;
+}
+
 export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const spaceId = url.searchParams.get('spaceId');
-  const size = url.searchParams.get('size') === '512' ? 512 : 192;
-  if (!spaceId) return new Response('Not found', { status: 404 });
-  const [space] = await getDb().select({ settings: spaces.settings }).from(spaces).where(eq(spaces.id, spaceId)).limit(1);
+  const size = new URL(request.url).searchParams.get('size') === '512' ? 512 : 192;
+  const space = await getOnlySpace();
   if (!space) return new Response('Not found', { status: 404 });
   const profile = ((space.settings ?? {}) as JsonObject).appProfile as JsonObject | undefined;
   const icon = typeof profile?.icon === 'string' && isSingleGrapheme(profile.icon) ? profile.icon.trim() : '🏡';

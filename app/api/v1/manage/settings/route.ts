@@ -1,14 +1,14 @@
 import { eq } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { spaces, type JsonObject } from '@/db/schema';
-import { requireHostForSpace } from '@/lib/auth/authorize';
+import { requireHost } from '@/lib/auth/authorize';
 import { isSingleGrapheme } from '@/lib/text/graphemes';
 
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null) as { spaceId?: unknown; name?: unknown; icon?: unknown; color?: unknown } | null;
-  const spaceId = typeof body?.spaceId === 'string' ? body.spaceId : '';
-  const auth = await requireHostForSpace(request, spaceId);
+  const auth = await requireHost(request);
   if ('error' in auth) return auth.error;
+  const spaceId = auth.session.spaceId;
 
   const name = typeof body?.name === 'string' ? body.name.trim() : '';
   const icon = typeof body?.icon === 'string' ? body.icon.trim() : '';

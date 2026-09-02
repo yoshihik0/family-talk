@@ -1,5 +1,7 @@
 'use client';
 
+import { writeStored } from '@/lib/browser/compat';
+
 import { FormEvent, useEffect, useState } from 'react';
 
 export default function JoinClient({ token }: { token: string }) {
@@ -32,9 +34,8 @@ export default function JoinClient({ token }: { token: string }) {
       setError(true);
       return;
     }
-    const result = await response.json() as { spaceId: string };
-    window.sessionStorage.setItem('pdh-install-space', result.spaceId);
-    window.location.href = `/s/${encodeURIComponent(result.spaceId)}`;
+    writeStored('session', 'pdh-install-guide', '1');
+    window.location.href = '/';
   }
 
   return (

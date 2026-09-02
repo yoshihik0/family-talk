@@ -2,7 +2,7 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
 
 self.addEventListener('push', (event) => {
-  let data = { title: 'はなそう', body: '新しいメッセージがあります。', url: '/', icon: '/icon-192.svg', tag: 'new-message' };
+  let data = { title: 'はなそう', body: '新しいメッセージがあります。', url: '/', icon: '/api/v1/app-icon?size=192', tag: 'new-message' };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {

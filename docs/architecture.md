@@ -31,6 +31,8 @@ Cloudflare側は「家族チャット専用サーバー」ではなく、所有�
 
 1つのデプロイ(1つのCloudflare環境)には、Spaceを1つだけ作る。複数の家族グループを持ちたい場合は、グループごとに別デプロイを用意する。これにより、データと権限はデプロイ単位で構造的に分離され、グループの存在自体を他デプロイの参加者へ公開しない。
 
+この方針はAPIにも適用する。どのSpaceを操作するかは常にセッション(`device_sessions.space_id`)が決め、リクエストから`spaceId`を受け取らない。「指定されたSpaceでの権限を引き直し忘れる」という種類の欠陥が、そもそも書けなくなる。URLにもSpaceを出さない。会話画面は`/`、管理画面は`/admin`だけで、`/s/<spaceId>`のような経路は持たない。
+
 ## 管理の統合と日常の入り口の分離
 
 グループの管理(名前・アイコン・投稿ポリシー・メンバーの追加/削除・招待発行・別端末の追加)は、独立した管理画面を持たず、会話画面の設定(歯車)の中に統合する。管理できない一般メンバーには、その中の管理項目自体を表示しない。
@@ -54,8 +56,7 @@ Record本体は`data_json`に保存し、アプリごとに自由な構造を許
 中核APIは以下の資源を中心に構成する。
 
 ```text
-/api/v1/spaces
-/api/v1/spaces/:spaceId/collections
+/api/v1/collections
 /api/v1/collections/:collectionId/records
 /api/v1/records/:recordId
 /api/v1/events

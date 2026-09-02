@@ -3,10 +3,15 @@ import { getDb } from '@/db';
 import { deviceSessions, identities, spaceMembers, spaces } from '@/db/schema';
 
 export const SESSION_COOKIE = 'pdh_session';
-const SESSION_DAYS = 90;
+// ブラウザ(Chrome)はCookieの有効期限を最長400日に切り詰めるので、これ以上長くしても
+// 端末側では延びない。そのぶん「使うたびに延ばす」ことで、使い続けている端末が
+// 期限切れで締め出されないようにする。
+const SESSION_DAYS = 400;
+// 残りが半分を切ったら延長する。15秒ごとのポーリングで毎回書き込まないための間引き。
+const SESSION_RENEW_AFTER_DAYS = SESSION_DAYS / 2;
 
-export function spaceSessionCookieName(spaceId: string) {
-  return `pdh_space_${spaceId.replace(/[^A-Za-z0-9_-]/g, '_')}`;
+export function sessionExpiryFrom(now: Date) {
+  return new Date(now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
 }
 
 function bytesToHex(bytes: Uint8Array) {
@@ -28,7 +33,7 @@ export async function createDeviceSession(identityId: string, spaceId: string, l
   const db = getDb();
   const token = createOpaqueToken();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+  const expiresAt = sessionExpiryFrom(now);
 
   await db.insert(deviceSessions).values({
     id: crypto.randomUUID(),
@@ -45,23 +50,25 @@ export async function createDeviceSession(identityId: string, spaceId: string, l
   return { token, expiresAt };
 }
 
-export async function getDeviceSession(request: Request, preferredSpaceId?: string) {
+// どのグループを見るかはリクエストではなくセッションが決める。呼び出し側が spaceId を
+// 渡す余地を残さないことで、「指定されたグループの権限を引き直し忘れる」種類の穴を塞ぐ。
+export async function getDeviceSession(request: Request) {
   const cookie = request.headers.get('cookie') ?? '';
-  const cookieValues = new Map(cookie
+  const token = cookie
     .split(';')
     .map((part) => part.trim())
     .map((part) => {
       const separator = part.indexOf('=');
       return separator > 0 ? [part.slice(0, separator), part.slice(separator + 1)] as const : ['', ''] as const;
     })
-    .filter(([name]) => Boolean(name)));
-  const token = (preferredSpaceId && cookieValues.get(spaceSessionCookieName(preferredSpaceId))) || cookieValues.get(SESSION_COOKIE);
+    .find(([name]) => name === SESSION_COOKIE)?.[1];
   if (!token) return null;
 
   const now = new Date();
   const [session] = await getDb()
     .select({
       sessionId: deviceSessions.id,
+      expiresAt: deviceSessions.expiresAt,
       identityId: identities.id,
       displayName: identities.displayName,
       identityMetadata: identities.metadata,
@@ -87,20 +94,34 @@ export async function getDeviceSession(request: Request, preferredSpaceId?: stri
 
   if (!session) return null;
 
+  // 使われているセッションは期限を延ばす。延ばしたときは、呼び出し側が同じ有効期限で
+  // Cookieを貼り直せるように renewedCookie を返す(DBだけ延ばしても、端末側のCookieが
+  // 先に消えてしまうと復旧手段が無い)。
+  const renew = session.expiresAt.getTime() - now.getTime() < SESSION_RENEW_AFTER_DAYS * 24 * 60 * 60 * 1000;
+  const expiresAt = renew ? sessionExpiryFrom(now) : session.expiresAt;
+
   await getDb()
     .update(deviceSessions)
-    .set({ lastSeenAt: now })
+    .set(renew ? { lastSeenAt: now, expiresAt } : { lastSeenAt: now })
     .where(eq(deviceSessions.id, session.sessionId));
 
-  return session;
+  return {
+    ...session,
+    renewedCookie: renew
+      ? makeSessionCookie(token, expiresAt, new URL(request.url).protocol === 'https:')
+      : null,
+  };
 }
 
-export function makeSessionCookie(token: string, expiresAt: Date, secure: boolean, spaceId?: string) {
+export function makeSessionCookie(token: string, expiresAt: Date, secure: boolean) {
   const attributes = [
-    `${spaceId ? spaceSessionCookieName(spaceId) : SESSION_COOKIE}=${token}`,
+    `${SESSION_COOKIE}=${token}`,
     'Path=/',
     'HttpOnly',
-    'SameSite=Strict',
+    // Strictにすると、LINEやメールに貼られたリンクからアプリを開いたときにCookieが送られず、
+    // ログインは生きているのに「ログイン情報が消えています」と出てしまう。Laxならページ遷移では
+    // 送られ、サイト外からのPOST等では送られないので、CSRF防御は保ったまま誤検知だけ消える。
+    'SameSite=Lax',
     `Expires=${expiresAt.toUTCString()}`,
   ];
   if (secure) attributes.push('Secure');

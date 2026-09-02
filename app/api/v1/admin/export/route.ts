@@ -1,10 +1,13 @@
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { collections, identities, records, spaces } from '@/db/schema';
-import { requireHostForSpace } from '@/lib/auth/authorize';
+import { requireHost } from '@/lib/auth/authorize';
 
+// Excel等は = + - @ で始まるセルを数式として解釈してしまう。発言内容はそのまま
+// 利用者が書いたものなので、先頭に ' を足して必ずただの文字列として読ませる。
 function csvField(value: string) {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
 function formatDateTime(date: Date) {
@@ -13,10 +16,9 @@ function formatDateTime(date: Date) {
 }
 
 export async function GET(request: Request) {
-  const spaceId = new URL(request.url).searchParams.get('spaceId') ?? '';
-  if (!spaceId) return Response.json({ error: 'space_id_required' }, { status: 400 });
-  const auth = await requireHostForSpace(request, spaceId);
+  const auth = await requireHost(request);
   if ('error' in auth) return auth.error;
+  const spaceId = auth.session.spaceId;
 
   const [space] = await getDb().select({ name: spaces.name }).from(spaces).where(eq(spaces.id, spaceId)).limit(1);
   if (!space) return Response.json({ error: 'space_not_found' }, { status: 404 });

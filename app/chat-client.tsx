@@ -2,7 +2,7 @@
 
 import { Fragment, FormEvent, useEffect, useRef, useState, type CSSProperties } from 'react';
 import QRCode from 'qrcode';
-import { enableNotifications, getGroupServiceWorker, getNotificationState, groupAppPath, type NotificationState } from '@/lib/push/client';
+import { enableNotifications, getAppServiceWorker, getNotificationState, type NotificationState } from '@/lib/push/client';
 
 type Message = {
   id: string;
@@ -17,6 +17,7 @@ type Message = {
 type ConversationPayload = {
   space: { id: string; name: string; settings: Record<string, unknown> };
   me: { id: string; displayName: string; role: string; metadata?: { avatarLabel?: string; avatarColor?: string; voiceDuration?: number; canInvite?: boolean } };
+  admins?: string[];
   messages: Message[];
   hasMore: boolean;
 };
@@ -52,6 +53,8 @@ const textSizeLabels: Record<TextSize, string> = {
   large: '大',
   xlarge: '特大',
 };
+import { recoveryInstructionsPrompt, serverNameFromUrl } from '@/lib/text/update-instructions';
+import { canReadAloud, copyText, readAloud, readStored, removeStored, writeStored } from '@/lib/browser/compat';
 import { PROFILE_COLORS as profileColors } from '@/lib/theme/colors';
 import { tintWithWhite } from '@/lib/theme/tint';
 
@@ -61,6 +64,36 @@ function canManage(role: string) {
 }
 
 class SetupRequiredError extends Error {}
+
+// ログイン情報を失った端末に案内を出すため、ログインできているあいだに控えておく。
+// サーバーに未認証で聞くと、URLを知っているだけの相手に管理者名を教えることになるので、
+// 「以前ログインできていた端末の中」にだけ残す。
+const RECOVERY_HINT_KEY = 'family-chat-recovery-hint';
+type RecoveryHint = { spaceName: string; myName: string; isAdmin: boolean; adminNames: string[] };
+
+// グループ名も利用者名も管理者が変更できるので、控えた情報は取れたぶんだけ毎回上書きする。
+// 管理者名(admins)は初回と一定間隔でしか送られてこないため、無いときは前回の値を残す。
+function saveRecoveryHint(payload: ConversationPayload) {
+  const previous = readRecoveryHint();
+  const adminNames = payload.admins ?? previous?.adminNames;
+  if (!adminNames) return;
+  const hint: RecoveryHint = {
+    spaceName: payload.space.name,
+    myName: payload.me.displayName,
+    isAdmin: payload.me.role === 'owner' || payload.me.role === 'host',
+    adminNames,
+  };
+  writeStored('local', RECOVERY_HINT_KEY, JSON.stringify(hint));
+}
+
+function readRecoveryHint(): RecoveryHint | null {
+  try {
+    const raw = readStored('local', RECOVERY_HINT_KEY);
+    return raw ? JSON.parse(raw) as RecoveryHint : null;
+  } catch { return null; }
+}
+// 通信の一時的な失敗と、ログイン情報が失われて二度と自力では戻れない状態とを区別する。
+class LockedOutError extends Error {}
 
 // 定期更新は常に最新50件だけを取り直す。その範囲より古い(「もっと見る」で読み込んだ)
 // 履歴はそのままに、範囲内だけを新しい結果で置き換える — 削除や編集もここで反映される。
@@ -77,14 +110,14 @@ function prependOlderMessages(current: Message[], older: Message[]): Message[] {
   return [...newOnes, ...current];
 }
 
-async function fetchConversation(fixedSpaceId?: string) {
-  const spaceQuery = fixedSpaceId ?? new URLSearchParams(window.location.search).get('spaceId');
-  const query = spaceQuery ? `?spaceId=${encodeURIComponent(spaceQuery)}` : '';
+async function fetchConversation(withAdmins = false) {
+  const query = withAdmins ? '?withAdmins=1' : '';
   const response = await fetch(`/api/v1/messages${query}`, { cache: 'no-store' });
 
   if (response.status === 401) {
     const setupState = await fetch('/api/v1/setup', { cache: 'no-store' }).then((r) => r.json()).catch(() => null) as { needsSetup?: boolean } | null;
     if (setupState?.needsSetup) throw new SetupRequiredError();
+    throw new LockedOutError();
   }
 
   if (!response.ok) throw new Error('conversation_unavailable');
@@ -92,17 +125,19 @@ async function fetchConversation(fixedSpaceId?: string) {
 
   // グループが分かったら、以後はそのグループ専用のセッションに揃える。
   // 端末に古い共通セッションが残っていると、画面上の自分と操作時の自分が食い違うため。
-  if (!spaceQuery) {
-    const scoped = await fetch(`/api/v1/messages?spaceId=${encodeURIComponent(payload.space.id)}`, { cache: 'no-store' }).catch(() => null);
-    if (scoped?.ok) return await scoped.json() as ConversationPayload;
-  }
   return payload;
 }
 
-export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } = {}) {
+export default function ChatClient() {
   const [conversation, setConversation] = useState<ConversationPayload | null>(null);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState(false);
+  // true は「締め出されたが、誰に頼めばいいかまでは分からない」状態。
+  const [lockedOut, setLockedOut] = useState<RecoveryHint | true | null>(null);
+  // 読み上げ非対応の端末では、押しても何も起きないボタンを出さない。
+  const [speechSupported, setSpeechSupported] = useState(false);
+  // 控えが消えていると誰が見ているのか判別できないので、そのときだけ管理者向けを出し分ける。
+  const [showAdminRecovery, setShowAdminRecovery] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [setupOwnerName, setSetupOwnerName] = useState('');
   const [setupGroupName, setSetupGroupName] = useState('');
@@ -146,8 +181,9 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   conversationRef.current = conversation;
 
   useEffect(() => {
-    fetchConversation(fixedSpaceId)
+    fetchConversation(true)
       .then((data) => {
+        saveRecoveryHint(data);
         setConversation(data);
         setPersonalName(data.me.displayName);
         setPersonalAvatar(data.me.metadata?.avatarLabel ?? data.me.displayName.slice(0, 1));
@@ -157,17 +193,24 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
         setPersonalDuration(savedDuration === 15 || savedDuration === 30 || savedDuration === 60 ? savedDuration : groupDuration === 15 || groupDuration === 30 || groupDuration === 60 ? groupDuration : 30);
         setHasMoreOlder(data.hasMore);
       })
-      .catch((thrown) => (thrown instanceof SetupRequiredError ? setNeedsSetup(true) : setError(true)));
-  }, [fixedSpaceId]);
+      .catch((thrown) => {
+        if (thrown instanceof SetupRequiredError) setNeedsSetup(true);
+        else if (thrown instanceof LockedOutError) setLockedOut(readRecoveryHint() ?? true);
+        else setError(true);
+      });
+  }, []);
 
   useEffect(() => {
     if (!conversation) return;
     let refreshTimer: number | null = null;
     const refresh = () => {
       if (document.visibilityState !== 'visible') return;
-      fetchConversation(fixedSpaceId)
+      fetchConversation()
         .then((next) => {
           if (next.space.id !== conversation.space.id) return;
+          // グループ名と自分の名前はポーリングで毎回届くので、控えもついでに直しておく。
+          // 管理者名はアプリを開き直したときに取り直せば十分(400日先のための案内なので)。
+          saveRecoveryHint(next);
           setConversation((current) => current ? { ...current, messages: mergeLatestMessages(current.messages, next.messages), space: next.space, me: next.me } : next);
         })
         .catch(() => undefined);
@@ -192,24 +235,27 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('focus', refresh);
     };
-  }, [conversation?.space.id, fixedSpaceId]);
+  }, [conversation?.space.id]);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem('family-chat-text-size');
+    setSpeechSupported(canReadAloud());
+  }, []);
+
+  useEffect(() => {
+    const saved = readStored('local', 'family-chat-text-size');
     if (saved === 'standard' || saved === 'large' || saved === 'xlarge') setTextSize(saved);
   }, []);
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches || Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
     if (standalone) return;
-    const requestedSpace = window.sessionStorage.getItem('pdh-install-space');
-    if (conversation && requestedSpace === conversation.space.id) setInstallGuide(true);
+    if (conversation && readStored('session', 'pdh-install-guide') === '1') setInstallGuide(true);
     const handleInstallPrompt = (event: Event) => {
       event.preventDefault();
       setInstallPrompt(event as InstallPromptEvent);
     };
     const handleInstalled = () => {
-      window.sessionStorage.removeItem('pdh-install-space');
+      removeStored('session', 'pdh-install-guide');
       setInstallGuide(false);
       setInstallPrompt(null);
     };
@@ -225,14 +271,12 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     if (!conversation) return;
     const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]') ?? document.head.appendChild(document.createElement('link'));
     manifest.rel = 'manifest';
-    manifest.href = `/api/v1/app-manifest?spaceId=${encodeURIComponent(conversation.space.id)}`;
-    const appPath = groupAppPath(conversation.space.id);
-    if (window.location.pathname !== appPath) window.history.replaceState({}, '', appPath);
-    getGroupServiceWorker(conversation.space.id).catch(() => undefined);
+    manifest.href = '/api/v1/app-manifest';
+    getAppServiceWorker().catch(() => undefined);
   }, [conversation?.space.id]);
 
   useEffect(() => {
-    if (conversation) getNotificationState(conversation.space.id).then(setNotificationStatus).catch(() => setNotificationStatus('default'));
+    if (conversation) getNotificationState().then(setNotificationStatus).catch(() => setNotificationStatus('default'));
   }, [conversation?.space.id]);
 
   useEffect(() => {
@@ -277,7 +321,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   // conversation.meからではなく、ここで取得した自分自身のメンバー情報を使う。
   useEffect(() => {
     if (!settingsOpen || !conversation) return;
-    fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(conversation.space.id)}`, { cache: 'no-store' })
+    fetch('/api/v1/manage/overview', { cache: 'no-store' })
       .then((response) => response.ok ? response.json() as Promise<{ members: GroupMember[] }> : null)
       .then((data) => {
         const list = data?.members ?? [];
@@ -312,7 +356,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     const oldest = conversation.messages[0]?.createdAt;
     if (!oldest) return;
     setLoadingOlder(true);
-    const params = new URLSearchParams({ spaceId: conversation.space.id, before: oldest });
+    const params = new URLSearchParams({ before: oldest });
     const response = await fetch(`/api/v1/messages?${params.toString()}`, { cache: 'no-store' }).catch(() => null);
     setLoadingOlder(false);
     if (!response?.ok) return;
@@ -340,11 +384,10 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       window.alert('作れませんでした。少し待ってもう一度お試しください。');
       return;
     }
-    const result = await response.json() as { spaceId: string };
-    window.location.href = `/s/${encodeURIComponent(result.spaceId)}`;
+    window.location.href = '/';
   }
 
-  async function sendMessageText(text: string, spaceId?: string) {
+  async function sendMessageText(text: string) {
     if (!text) {
       setSending(false);
       return;
@@ -353,7 +396,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     const response = await fetch('/api/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, spaceId }),
+      body: JSON.stringify({ text }),
     }).catch(() => null);
 
     if (!response?.ok) {
@@ -382,7 +425,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       return;
     }
     if (sending) return;
-    await sendMessageText(draft.trim(), conversation?.space.id);
+    await sendMessageText(draft.trim());
   }
 
   function stopVoiceInput() {
@@ -440,7 +483,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
         voiceFinalTranscriptRef.current = '';
         if (voicePendingSubmitRef.current) {
           voicePendingSubmitRef.current = false;
-          void sendMessageText(draftRef.current.trim(), conversationRef.current?.space.id);
+          void sendMessageText(draftRef.current.trim());
         }
       };
       recognitionRef.current = recognition;
@@ -453,22 +496,15 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     voiceTimerRef.current = window.setTimeout(stopVoiceInput, duration * 1000);
   }
 
-  function readAloud(text: string) {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ja-JP';
-    window.speechSynthesis.speak(utterance);
-  }
-
   function changeTextSize(next: TextSize) {
     setTextSize(next);
-    window.localStorage.setItem('family-chat-text-size', next);
+    writeStored('local', 'family-chat-text-size', next);
   }
 
   async function requestNotifications() {
     if (!conversation) return;
     try {
-      setNotificationStatus(await enableNotifications(conversation.space.id));
+      setNotificationStatus(await enableNotifications());
     } catch {
       window.alert('通知を登録できませんでした。少し待ってもう一度お試しください。');
     }
@@ -479,7 +515,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     await installPrompt.prompt();
     const choice = await installPrompt.userChoice;
     if (choice.outcome === 'accepted') {
-      window.sessionStorage.removeItem('pdh-install-space');
+      removeStored('session', 'pdh-install-guide');
       setInstallGuide(false);
     }
     setInstallPrompt(null);
@@ -492,7 +528,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
       return;
     }
     setSavingPersonalProfile(true);
-    const response = await fetch('/api/v1/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId: conversation?.space.id, displayName: name, avatarLabel: personalAvatar, avatarColor: personalColor, voiceDuration: personalDuration }) }).catch(() => null);
+    const response = await fetch('/api/v1/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: name, avatarLabel: personalAvatar, avatarColor: personalColor, voiceDuration: personalDuration }) }).catch(() => null);
     if (!response?.ok) {
       setSavingPersonalProfile(false);
       window.alert('名前は40文字以内、アイコンは1つの文字で設定してください。');
@@ -505,7 +541,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
 
   async function createDeviceLink() {
     if (!conversation) return;
-    const response = await fetch('/api/v1/device-links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId: conversation.space.id }) }).catch(() => null);
+    const response = await fetch('/api/v1/device-links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }).catch(() => null);
     if (!response?.ok) { window.alert('接続リンクを作れませんでした。'); return; }
     const result = await response.json() as { deviceUrl: string; expiresAt: string };
     setDeviceUrl(result.deviceUrl);
@@ -517,7 +553,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
     const response = await fetch('/api/v1/manage/invites', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spaceId: conversation.space.id }),
+      body: JSON.stringify({}),
     }).catch(() => null);
     if (!response?.ok) {
       window.alert(response?.status === 409 ? 'さきに名前とアイコンを保存してください。' : '招待リンクを作れませんでした。');
@@ -531,7 +567,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
   async function deleteMessage(messageId: string) {
     if (!conversation) return;
     setConfirmDeleteId(null);
-    const response = await fetch(`/api/v1/messages?spaceId=${encodeURIComponent(conversation.space.id)}&messageId=${encodeURIComponent(messageId)}`, { method: 'DELETE' }).catch(() => null);
+    const response = await fetch(`/api/v1/messages?messageId=${encodeURIComponent(messageId)}`, { method: 'DELETE' }).catch(() => null);
     if (!response?.ok) {
       window.alert('1日を過ぎたか、すでに削除されています。');
       return;
@@ -576,6 +612,65 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
             </div>
             <button type="submit" disabled={!setupOwnerName.trim() || !setupGroupName.trim() || settingUp}>{settingUp ? '作っています…' : 'はじめる'}</button>
           </form>
+        </section>
+      </main>
+    );
+  }
+
+  if (lockedOut) {
+    const hint = lockedOut === true ? null : lockedOut;
+    // 端末が「自分は管理者だった」と覚えている場合だけ、Cloudflareでの復旧手順を出す。
+    // それ以外は、誰に何を頼めばいいかだけを伝える。
+    if (hint?.isAdmin) {
+      const appUrl = window.location.origin;
+      const prompt = recoveryInstructionsPrompt(appUrl);
+      const serverName = serverNameFromUrl(appUrl);
+      return (
+        <main className="app-shell">
+          <section className="state-card" role="alert">
+            <h1>この端末のログイン情報が消えています</h1>
+            <p>Cloudflareにログインして、「{serverName}」を復旧してください。</p>
+            <p>AIに指示して行うことができます。</p>
+            <p className="admin-prompt-label">AI用プロンプト</p>
+            <p className="admin-prompt-text">{prompt}</p>
+            <button type="button" onClick={() => copyText(prompt)}>コピー</button>
+          </section>
+        </main>
+      );
+    }
+    const adminName = hint?.adminNames[0];
+    if (hint && adminName) {
+      return (
+        <main className="app-shell">
+          <section className="state-card" role="alert">
+            <h1>この端末のログイン情報が消えています</h1>
+            <p>「{hint.spaceName}」の管理者「{adminName}」さんに、ユーザー名「{hint.myName}」のログイン用のリンクをもらってください。</p>
+          </section>
+        </main>
+      );
+    }
+    // 端末に控えが残っていない場合(iOSが保存領域を消したときなど)。見ているのが家族か
+    // 管理者か分からないので、家族向けを既定にして、管理者向けは一段奥に置く。
+    const appUrl = window.location.origin;
+    const prompt = recoveryInstructionsPrompt(appUrl);
+    const serverName = serverNameFromUrl(appUrl);
+    return (
+      <main className="app-shell">
+        <section className="state-card" role="alert">
+          <h1>この端末のログイン情報が消えています</h1>
+          <p>グループの管理者に、ログイン用のリンクをもらってください。</p>
+          {showAdminRecovery ? (
+            <>
+              <hr className="settings-divider" />
+              <p>Cloudflareにログインして、「{serverName}」を復旧してください。</p>
+              <p>AIに指示して行うことができます。</p>
+              <p className="admin-prompt-label">AI用プロンプト</p>
+              <p className="admin-prompt-text">{prompt}</p>
+              <button type="button" onClick={() => copyText(prompt)}>コピー</button>
+            </>
+          ) : (
+            <button type="button" onClick={() => setShowAdminRecovery(true)}>あなたが管理者の場合</button>
+          )}
         </section>
       </main>
     );
@@ -667,7 +762,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
             {deviceUrl && <div className="expandable-panel">
               <small>{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(deviceExpiresAt))}まで</small>
               <p>{deviceUrl}</p>
-              <button type="button" onClick={() => navigator.clipboard.writeText(deviceUrl)}>リンクをコピー</button>
+              <button type="button" onClick={() => copyText(deviceUrl)}>リンクをコピー</button>
               {deviceQr && <img src={deviceQr} alt="別の端末をつなぐQRコード" />}
             </div>}
           </div>
@@ -680,7 +775,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
             {inviteUrl && <div className="expandable-panel">
               <small>{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(inviteExpiresAt))}まで</small>
               <p>{inviteUrl}</p>
-              <button type="button" onClick={() => navigator.clipboard.writeText(inviteUrl)}>リンクをコピー</button>
+              <button type="button" onClick={() => copyText(inviteUrl)}>リンクをコピー</button>
               {inviteQr && <img src={inviteQr} alt="家族を招待するQRコード" />}
             </div>}
             <hr className="settings-divider" />
@@ -693,7 +788,7 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
               ))}
             </ul>
             {canManage(conversation.me.role) && <div className="admin-links-setting">
-              <a className="admin-tool-link" href={`/admin/${encodeURIComponent(conversation.space.id)}`} target="_blank" rel="noreferrer">管理ツールを開く</a>
+              <a className="admin-tool-link" href="/admin" target="_blank" rel="noreferrer">管理ツールを開く</a>
             </div>}
           </div>
           </div>
@@ -718,9 +813,9 @@ export default function ChatClient({ fixedSpaceId }: { fixedSpaceId?: string } =
                   : <button className="message-delete" type="button" aria-label="この発言を削除" onClick={() => setConfirmDeleteId(message.id)}>×</button>)}</div>
                 <div className="message-content">
                   <div className="message-bubble" style={{ background: tintWithWhite(bubbleColor, 10) }}><p>{message.text}</p></div>
-                  <button className="read-aloud" type="button" onClick={() => readAloud(message.text)} aria-label={`${message.senderName}のメッセージを読み上げる`}>
+                  {speechSupported && <button className="read-aloud" type="button" onClick={() => readAloud(message.text)} aria-label={`${message.senderName}のメッセージを読み上げる`}>
                     <svg className="speaker-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10v4h4l5 4V6l-5 4H4Z" /><path d="M16 9.5a4 4 0 0 1 0 5M18.5 7a7.5 7.5 0 0 1 0 10" /></svg>
-                  </button>
+                  </button>}
                 </div>
                 </article>
               </Fragment>

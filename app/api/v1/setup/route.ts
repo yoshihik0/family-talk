@@ -59,6 +59,6 @@ export async function POST(request: Request) {
   const { token, expiresAt } = await createDeviceSession(identityId, spaceId, 'initial setup');
   const response = Response.json({ ok: true, spaceId }, { status: 201 });
   const secure = new URL(request.url).protocol === 'https:';
-  response.headers.append('Set-Cookie', makeSessionCookie(token, expiresAt, secure, spaceId));
+  response.headers.append('Set-Cookie', makeSessionCookie(token, expiresAt, secure));
   return response;
 }

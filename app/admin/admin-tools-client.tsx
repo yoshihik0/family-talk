@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { UPDATE_INSTRUCTIONS_PROMPT } from '@/lib/text/update-instructions';
+import { copyText } from '@/lib/browser/compat';
 import { PROFILE_COLORS } from '@/lib/theme/colors';
 import { compareVersions } from '@/lib/text/version';
 
@@ -19,7 +20,7 @@ type Member = {
   canInvite?: boolean;
 };
 
-export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
+export default function AdminToolsClient() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'forbidden'>('loading');
   const [downloading, setDownloading] = useState(false);
   const [promptCopied, setPromptCopied] = useState(false);
@@ -55,7 +56,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   const [notices, setNotices] = useState<UpdateNotice[]>([]);
 
   function loadOverview() {
-    return fetch(`/api/v1/manage/overview?spaceId=${encodeURIComponent(spaceId)}`, { cache: 'no-store' })
+    return fetch('/api/v1/manage/overview', { cache: 'no-store' })
       .then((response) => {
         if (!response.ok) { setStatus('forbidden'); return null; }
         return response.json() as Promise<{ viewerRole: string; viewerId: string; space: { name: string; icon: string; color: string }; members: Member[] }>;
@@ -76,7 +77,8 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   useEffect(() => {
     loadOverview();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (deviceUrl) QRCode.toDataURL(deviceUrl, { margin: 1, width: 180 }).then(setDeviceQr).catch(() => setDeviceQr(''));
@@ -118,7 +120,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
       return;
     }
     setSavingGroup(true);
-    const response = await fetch('/api/v1/manage/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId, name, icon: groupIcon, color: groupColor }) }).catch(() => null);
+    const response = await fetch('/api/v1/manage/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, icon: groupIcon, color: groupColor }) }).catch(() => null);
     setSavingGroup(false);
     if (!response?.ok) {
       window.alert('グループ名は40文字以内、アイコンは1つの文字で設定してください。');
@@ -140,7 +142,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
 
   async function createDeviceLinkFor(memberId: string) {
     setCreatingDeviceLink(true);
-    const response = await fetch('/api/v1/device-links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ spaceId, memberId }) }).catch(() => null);
+    const response = await fetch('/api/v1/device-links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memberId }) }).catch(() => null);
     setCreatingDeviceLink(false);
     if (!response?.ok) {
       window.alert('接続リンクを作れませんでした。');
@@ -156,7 +158,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     const response = await fetch('/api/v1/manage/invites', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spaceId, multiUse: true, expiresInDays: multiInviteDays }),
+      body: JSON.stringify({ multiUse: true, expiresInDays: multiInviteDays }),
     }).catch(() => null);
     setCreatingMultiInvite(false);
     if (!response?.ok) {
@@ -178,7 +180,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
     const response = await fetch('/api/v1/manage/members', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ spaceId, memberId, displayName: name, avatarLabel: editIcon, avatarColor: editColor, voiceDuration: editDuration, canInvite: editCanInvite }),
+      body: JSON.stringify({ memberId, displayName: name, avatarLabel: editIcon, avatarColor: editColor, voiceDuration: editDuration, canInvite: editCanInvite }),
     }).catch(() => null);
     setSavingMemberId(null);
     if (!response?.ok) {
@@ -191,7 +193,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
 
   async function deleteMember(memberId: string) {
     setConfirmDeleteId(null);
-    const params = new URLSearchParams({ spaceId, memberId });
+    const params = new URLSearchParams({ memberId });
     const response = await fetch(`/api/v1/manage/members?${params.toString()}`, { method: 'DELETE' }).catch(() => null);
     if (!response?.ok) {
       window.alert('削除できませんでした。');
@@ -202,7 +204,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
 
   async function downloadLog() {
     setDownloading(true);
-    const response = await fetch(`/api/v1/admin/export?spaceId=${encodeURIComponent(spaceId)}`, { cache: 'no-store' }).catch(() => null);
+    const response = await fetch('/api/v1/admin/export', { cache: 'no-store' }).catch(() => null);
     setDownloading(false);
     if (!response?.ok) {
       window.alert('ダウンロードできませんでした。');
@@ -222,7 +224,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
   }
 
   async function copyPrompt() {
-    await navigator.clipboard.writeText(UPDATE_INSTRUCTIONS_PROMPT).catch(() => undefined);
+    await copyText(UPDATE_INSTRUCTIONS_PROMPT);
     setPromptCopied(true);
   }
 
@@ -233,7 +235,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
         <h1>{groupIcon && <span className="header-icon" aria-hidden="true">{groupIcon}</span>}{groupName || '家族のおしゃべり'}</h1>
 
         {status === 'loading' && <p className="admin-state">確認しています…</p>}
-        {status === 'forbidden' && <p className="admin-state" role="alert">この操作には管理者権限が必要です。会話画面からログインし直してください。</p>}
+        {status === 'forbidden' && <p className="admin-state" role="alert">この操作には管理者権限が必要です。グループの管理者に依頼してください。</p>}
 
         {status === 'ready' && (
           <div className="admin-tools">
@@ -292,12 +294,12 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
                         </div>
                         <hr className="settings-divider" />
                         <div className="settings-row">
-                          <button className="device-link-toggle" type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLinkFor(member.id))} disabled={creatingDeviceLink}>{deviceUrl ? '閉じる' : 'ログイン情報'}</button>
+                          <button className="device-link-toggle" type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLinkFor(member.id))} disabled={creatingDeviceLink}>{deviceUrl ? '閉じる' : '接続リンク'}</button>
                         </div>
                         {deviceUrl && <div className="expandable-panel">
                           <small>この情報を{member.displayName}さんに伝えてください。{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(deviceExpiresAt))}まで有効です。</small>
                           <p>{deviceUrl}</p>
-                          <button type="button" onClick={() => navigator.clipboard.writeText(deviceUrl)}>リンクをコピー</button>
+                          <button type="button" onClick={() => copyText(deviceUrl)}>リンクをコピー</button>
                           {deviceQr && <img src={deviceQr} alt="別の端末をつなぐQRコード" />}
                         </div>}
                       </div>
@@ -329,7 +331,7 @@ export default function AdminToolsClient({ spaceId }: { spaceId: string }) {
               {multiInviteUrl && <div className="expandable-panel">
                 <small>{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(multiInviteExpiresAt))}まで有効です。</small>
                 <p>{multiInviteUrl}</p>
-                <button type="button" onClick={() => navigator.clipboard.writeText(multiInviteUrl)}>リンクをコピー</button>
+                <button type="button" onClick={() => copyText(multiInviteUrl)}>リンクをコピー</button>
                 {multiInviteQr && <img src={multiInviteQr} alt="招待QRコード" />}
               </div>}
             </div>

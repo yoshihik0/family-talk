@@ -2,21 +2,21 @@ import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db';
 import { deviceLinks, spaceMembers } from '@/db/schema';
 import { createOpaqueToken, getDeviceSession, hashToken } from '@/lib/auth/session';
-import { requireHostForSpace } from '@/lib/auth/authorize';
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null) as { spaceId?: unknown; memberId?: unknown } | null;
-  const spaceId = typeof body?.spaceId === 'string' ? body.spaceId : '';
-  const session = await getDeviceSession(request, spaceId || undefined);
+  const body = await request.json().catch(() => null) as { memberId?: unknown } | null;
+  const session = await getDeviceSession(request);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  const spaceId = session.spaceId;
 
   const requestedMemberId = typeof body?.memberId === 'string' ? body.memberId : session.identityId;
   let targetIdentityId = session.identityId;
   if (requestedMemberId !== session.identityId) {
     // 他のメンバー宛てのリンクは、管理者が代わりに発行できるようにする
     // (端末を失って自分ではログインできなくなったメンバーの救済用)。
-    const auth = await requireHostForSpace(request, spaceId);
-    if ('error' in auth) return auth.error;
+    if (session.role !== 'owner' && session.role !== 'host') {
+      return Response.json({ error: 'forbidden' }, { status: 403 });
+    }
     targetIdentityId = requestedMemberId;
   }
 

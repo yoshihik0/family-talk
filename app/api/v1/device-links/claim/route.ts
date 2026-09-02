@@ -32,6 +32,6 @@ export async function POST(request: Request) {
   const [space] = await getDb().select({ name: spaces.name }).from(spaces).where(eq(spaces.id, link.spaceId)).limit(1);
   const { token: sessionToken, expiresAt } = await createDeviceSession(link.identityId, link.spaceId, 'linked device');
   const response = Response.json({ ok: true, spaceId: link.spaceId, spaceName: space?.name ?? '' });
-  response.headers.append('Set-Cookie', makeSessionCookie(sessionToken, expiresAt, new URL(request.url).protocol === 'https:', link.spaceId));
+  response.headers.append('Set-Cookie', makeSessionCookie(sessionToken, expiresAt, new URL(request.url).protocol === 'https:'));
   return response;
 }

@@ -1,26 +1,24 @@
 import { and, eq } from 'drizzle-orm';
 import { getDb } from '@/db';
-import { identities, spaceMembers, type JsonObject } from '@/db/schema';
-import { getDeviceSession } from '@/lib/auth/session';
-import { requireHostForSpace } from '@/lib/auth/authorize';
+import { identities, pushSubscriptions, spaceMembers } from '@/db/schema';
+import { requireHost } from '@/lib/auth/authorize';
 import { isSingleGrapheme } from '@/lib/text/graphemes';
 
 export async function DELETE(request: Request) {
-  const url = new URL(request.url);
-  const requestedSpaceId = url.searchParams.get('spaceId') ?? '';
-  const memberId = url.searchParams.get('memberId');
-  const session = await getDeviceSession(request, requestedSpaceId || undefined);
-  if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
-  const spaceId = requestedSpaceId || session.spaceId;
-  const auth = await requireHostForSpace(request, spaceId);
+  const memberId = new URL(request.url).searchParams.get('memberId');
+  const auth = await requireHost(request);
   if ('error' in auth) return auth.error;
+  const spaceId = auth.session.spaceId;
   if (!memberId) return Response.json({ error: 'member_id_required' }, { status: 400 });
-  if (memberId === session.identityId) return Response.json({ error: 'cannot_remove_self' }, { status: 400 });
+  if (memberId === auth.session.identityId) return Response.json({ error: 'cannot_remove_self' }, { status: 400 });
 
   const [member] = await getDb().select({ role: spaceMembers.role }).from(spaceMembers).where(and(eq(spaceMembers.spaceId, spaceId), eq(spaceMembers.identityId, memberId))).limit(1);
   if (!member) return Response.json({ error: 'member_not_found' }, { status: 404 });
   if (member.role === 'owner') return Response.json({ error: 'cannot_remove_owner' }, { status: 400 });
   await getDb().delete(spaceMembers).where(and(eq(spaceMembers.spaceId, spaceId), eq(spaceMembers.identityId, memberId)));
+  // 通知の購読も消す。残しておくと、締め出したはずの端末に新着通知が鳴り続ける
+  // (通知の宛先はグループ単位で選んでいて、メンバーかどうかは見ていないため)。
+  await getDb().delete(pushSubscriptions).where(and(eq(pushSubscriptions.spaceId, spaceId), eq(pushSubscriptions.identityId, memberId)));
   return Response.json({ removed: memberId });
 }
 
@@ -28,7 +26,6 @@ export async function DELETE(request: Request) {
 // 高齢の家族が誤って設定を崩してしまった場合の救済策。
 export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null) as {
-    spaceId?: unknown;
     memberId?: unknown;
     displayName?: unknown;
     avatarLabel?: unknown;
@@ -36,10 +33,9 @@ export async function PATCH(request: Request) {
     voiceDuration?: unknown;
     canInvite?: unknown;
   } | null;
-  const requestedSpaceId = typeof body?.spaceId === 'string' ? body.spaceId : '';
-  const auth = await requireHostForSpace(request, requestedSpaceId);
+  const auth = await requireHost(request);
   if ('error' in auth) return auth.error;
-  const spaceId = requestedSpaceId;
+  const spaceId = auth.session.spaceId;
   const memberId = typeof body?.memberId === 'string' ? body.memberId : '';
   if (!memberId) return Response.json({ error: 'member_id_required' }, { status: 400 });
 

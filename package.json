@@ -1,6 +1,6 @@
 {
   "name": "family-talk",
-  "version": "0.11.9",
+  "version": "0.12.0",
   "private": true,
   "engines": {
     "node": ">=22.13.0"
@@ -13,7 +13,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "wrangler d1 migrations apply DB --remote",
     "deploy": "npm run build && npm run db:migrate && wrangler deploy",
-    "deploy:all": "npm run build && wrangler d1 migrations apply DB --remote --config wrangler.personal.toml --env \"\" && wrangler deploy --config wrangler.personal.toml --env \"\""
+    "deploy:all": "npm run build && wrangler d1 migrations apply DB --remote --config wrangler.personal.toml --env \"\" && wrangler deploy --config wrangler.personal.toml --env \"\"",
+    "recover": "node scripts/recover.mjs"
   },
   "dependencies": {
     "@types/web-push": "^3.6.4",

@@ -2,17 +2,15 @@ import { getDb } from '@/db';
 import { eq } from 'drizzle-orm';
 import { invites, spaces, type JsonObject } from '@/db/schema';
 import { createOpaqueToken, getDeviceSession, hashToken } from '@/lib/auth/session';
-import { requireHostForSpace } from '@/lib/auth/authorize';
 
 const MULTI_USE_MAX_USES = 50;
 const MULTI_USE_MAX_DAYS = 7;
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null) as { spaceId?: unknown; multiUse?: unknown; expiresInDays?: unknown } | null;
-  const requestedSpaceId = typeof body?.spaceId === 'string' ? body.spaceId : '';
-  const session = await getDeviceSession(request, requestedSpaceId || undefined);
+  const body = await request.json().catch(() => null) as { multiUse?: unknown; expiresInDays?: unknown } | null;
+  const session = await getDeviceSession(request);
   if (!session) return Response.json({ error: 'unauthorized' }, { status: 401 });
-  const spaceId = requestedSpaceId || session.spaceId;
+  const spaceId = session.spaceId;
   const isHost = session.role === 'owner' || session.role === 'host';
 
   // 通常の招待(1人・1日間)は、管理者か「ユーザー追加を許可」されたメンバーだけが作れる。
@@ -20,8 +18,7 @@ export async function POST(request: Request) {
   let maxUses = 1;
   let expiresInDays = 1;
   if (body?.multiUse === true) {
-    const auth = await requireHostForSpace(request, spaceId);
-    if ('error' in auth) return auth.error;
+    if (!isHost) return Response.json({ error: 'forbidden' }, { status: 403 });
     maxUses = MULTI_USE_MAX_USES;
     const requestedExpiresInDays = Number(body?.expiresInDays);
     expiresInDays = Number.isInteger(requestedExpiresInDays) && requestedExpiresInDays >= 1 && requestedExpiresInDays <= MULTI_USE_MAX_DAYS ? requestedExpiresInDays : 1;

@@ -1,6 +1,11 @@
 import tailwindcss from '@tailwindcss/postcss';
 import vinext from 'vinext';
 import { defineConfig } from 'vite';
+import { createRequire } from 'node:module';
+
+// バージョンの正は package.json の1箇所だけ。ビルド時に定数へ置き換えるので、
+// Workers上でJSONを読み込む必要がない。
+const { version } = createRequire(import.meta.url)('./package.json') as { version: string };
 
 export default defineConfig(async () => {
   // Keep Wrangler and Miniflare state project-local. These are non-secret tool
@@ -13,6 +18,7 @@ export default defineConfig(async () => {
   const { cloudflare } = await import('@cloudflare/vite-plugin');
 
   return {
+    define: { __APP_VERSION__: JSON.stringify(version) },
     css: { postcss: { plugins: [tailwindcss()] } },
     plugins: [
       vinext(),
@@ -21,7 +27,8 @@ export default defineConfig(async () => {
       // when Vite resolves this config.
       cloudflare({
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
-        config: { main: 'vinext/server/app-router-entry' },
+        // vinextのハンドラを worker/index.ts で包んで、セキュリティヘッダを付けている。
+        config: { main: 'worker/index.ts' },
       }),
     ],
   };
