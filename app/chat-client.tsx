@@ -58,6 +58,7 @@ const textSizeLabels: Record<TextSize, string> = {
 import { recoveryInstructionsPrompt, serverNameFromUrl } from '@/lib/text/update-instructions';
 import { canReadAloud, copyText, readAloud, readStored, removeStored, writeStored } from '@/lib/browser/compat';
 import { clearVoiceLog, readVoiceLog, recordVoice } from '@/lib/voice/diagnostics';
+import { joinSpoken, mergeSpoken } from '@/lib/voice/merge';
 import { PROFILE_COLORS as profileColors } from '@/lib/theme/colors';
 import { tintWithWhite } from '@/lib/theme/tint';
 
@@ -176,7 +177,8 @@ export default function ChatClient() {
   const recognitionRef = useRef<Recognition | null>(null);
   const voiceTimerRef = useRef<number | null>(null);
   const voiceManualStopRef = useRef(false);
-  const voiceFinalTranscriptRef = useRef('');
+  // 確定した発話の並び。セッションをまたいで貯める。
+  const voiceSegmentsRef = useRef<string[]>([]);
   // 聞き取りの「世代」。開始のたびに増やし、この番号が一致する回だけが書き込める。
   // 前回の認識が終了しきらずに残っていても、古い世代は何もできなくなる。
   const voiceEpochRef = useRef(0);
@@ -467,7 +469,7 @@ export default function ChatClient() {
     recognitionRef.current = null;
 
     voiceManualStopRef.current = false;
-    voiceFinalTranscriptRef.current = '';
+    voiceSegmentsRef.current = [];
     clearVoiceLog();
     recordVoice({ kind: 'start', epoch });
     setListening(true);
@@ -496,39 +498,24 @@ export default function ChatClient() {
         // 既に次のセッションへ切り替わっている場合、古いセッションから遅れて届いた結果は
         // 捨てる。拾ってしまうと、同じ発話がもう一度足されて文が重複する。
         if (voiceEpochRef.current !== epoch || recognitionRef.current !== recognition) return;
-        // results の中身は端末によって意味が違う。
-        //   (a) 発話を区切った断片が並ぶ端末 → つなげるのが正しい
-        //   (b) 同じ発話が伸びていくスナップショットが溜まる端末 → 一番長いものが正しい
-        // (b) を素朴につなげると「とと言っと言ってと言っても…」と何倍にも膨らむ。
-        // (b) では末尾が言い直されること(「あはっと」→「あーっと」)もあるため、要素ごとの
-        // 前方一致ではなく、配列全体の形で見分ける。最後の要素が最初の要素で始まっていれば
-        // 同じ発話を積み上げている(b)とみなす。
-        const finals: string[] = [];
+        // 結果配列の中身は端末によって意味が違う。断片が並ぶこともあれば、
+        // 同じ発話のスナップショットが溜まることもある。同じ規則で畳む。
+        let parts: string[] = [];
         for (let index = 0; index < event.results.length; index += 1) {
           const result = event.results[index];
-          if (result.isFinal) finals.push(result[0].transcript);
+          if (result.isFinal) parts = mergeSpoken(parts, result[0].transcript);
         }
-        let text = '';
-        if (finals.length > 1 && finals[finals.length - 1].startsWith(finals[0])) {
-          text = finals.reduce((longest, part) => (part.length >= longest.length ? part : longest), '');
-        } else {
-          for (const part of finals) {
-            if (!text) text = part;
-            else if (part.startsWith(text)) text = part;   // 伸びた版
-            else if (!text.endsWith(part)) text += part;   // 新しい断片(既出なら足さない)
-          }
-        }
+        const text = joinSpoken(parts);
         if (!text) return;
-        // text はこのセッションが認識した文の全体なので、足さずに置き換える。
-        // 末尾を言い直した場合(「あはっ」→「あーっ」)も、これで正しく差し替わる。
+        // このセッションの文を、確定済みの並びへ同じ規則で重ねて表示する。
         sessionText = text;
-        const next = voiceFinalTranscriptRef.current + sessionText;
+        const next = joinSpoken(mergeSpoken(voiceSegmentsRef.current, sessionText));
         recordVoice({
           kind: 'result', epoch, session,
           resultIndex: event.resultIndex,
           results: Array.from(event.results as ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>,
             (result) => ({ final: Boolean(result.isFinal), text: result[0].transcript })),
-          text, total: voiceFinalTranscriptRef.current, next,
+          text, total: joinSpoken(voiceSegmentsRef.current), next,
         });
         setDraft(next);
       };
@@ -537,16 +524,15 @@ export default function ChatClient() {
         recordVoice({ kind: 'end', epoch, session, text: sessionText });
         if (voiceEpochRef.current !== epoch || recognitionRef.current !== recognition) return;
         recognitionRef.current = null;
-        // このセッション分を確定させる。再開後に最初から返してくる端末もあるので、
-        // 既にある文の続きになっている場合は足さずに置き換える。
-        const base = voiceFinalTranscriptRef.current;
-        voiceFinalTranscriptRef.current = !base || sessionText.startsWith(base) ? sessionText : base + sessionText;
+        // セッション分を確定させる。次のセッションが同じ発話の続きを返してきた場合は、
+        // ここで足さずに置き換わる(判定は結果配列のときと同じ)。
+        voiceSegmentsRef.current = mergeSpoken(voiceSegmentsRef.current, sessionText);
         // 蓄積は onresult の時点で確定済みなので、ここで詰め直すものは無い。
         if (!voiceManualStopRef.current) {
           beginSession();
           return;
         }
-        voiceFinalTranscriptRef.current = '';
+        voiceSegmentsRef.current = [];
         if (voicePendingSubmitRef.current) {
           voicePendingSubmitRef.current = false;
           void sendMessageText(draftRef.current.trim());
