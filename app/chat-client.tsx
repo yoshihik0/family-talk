@@ -179,6 +179,8 @@ export default function ChatClient() {
   // 聞き取りの「世代」。開始のたびに増やし、この番号が一致する回だけが書き込める。
   // 前回の認識が終了しきらずに残っていても、古い世代は何もできなくなる。
   const voiceEpochRef = useRef(0);
+  // 直前に取り込んだ断片。伸びた版が届いたら、この断片を置き換える。
+  const voiceLastChunkRef = useRef('');
   const voicePendingSubmitRef = useRef(false);
   const draftRef = useRef('');
   const conversationRef = useRef<ConversationPayload | null>(null);
@@ -462,6 +464,7 @@ export default function ChatClient() {
 
     voiceManualStopRef.current = false;
     voiceFinalTranscriptRef.current = '';
+    voiceLastChunkRef.current = '';
     setListening(true);
 
     // 一部の端末(古いAndroid WebViewなど)は無音を検知すると、指定時間より
@@ -490,11 +493,17 @@ export default function ChatClient() {
           if (result.isFinal) text += result[0].transcript;
         }
         if (!text) return;
+        // 比べる相手は「全体」ではなく「直前に取り込んだ断片」。
+        // 全体と比べると、雑音などで一度でも噛み合わなくなった時点で判定が効かなくなり、
+        // 以降の断片がすべて足されて文字が何倍にも増えてしまう。
         const total = voiceFinalTranscriptRef.current;
-        const next = !total || text.startsWith(total) ? text        // 続きを含んでいる → 差し替え
-          : total.endsWith(text) ? total                            // 既に入っている → そのまま
-          : total + text;                                           // 本当に新しい分 → 足す
+        const last = voiceLastChunkRef.current;
+        const next = last && text.startsWith(last)
+          ? total.slice(0, total.length - last.length) + text  // 同じ断片が伸びた → 置き換える
+          : total.endsWith(text) ? total                       // 既に入っている → そのまま
+          : total + text;                                      // 新しい断片 → 足す
         voiceFinalTranscriptRef.current = next;
+        voiceLastChunkRef.current = text;
         setDraft(next);
       };
       recognition.onerror = () => stopVoiceInput();
