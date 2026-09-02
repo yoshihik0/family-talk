@@ -9,6 +9,9 @@
 //   npm run recover -- --config wrangler.personal.toml --env omiya --url https://omiya.example.workers.dev
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 function arg(name) {
   const index = process.argv.indexOf(`--${name}`);
@@ -23,16 +26,63 @@ const database = arg('database') ?? 'DB';
 const siteUrl = arg('url');
 const memberName = arg('member');
 
+const local = process.argv.includes('--local');
+
+function run(args) {
+  try {
+    return execFileSync('npx', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (error) {
+    const detail = `${error.stdout ?? ''}${error.stderr ?? ''}`;
+    const note = detail.match(/"text":\s*"([^"]*could not be found[^"]*)"/)?.[1]
+      ?? detail.match(/\[code:\s*\d+\]/)?.[0]
+      ?? detail.trim().split('\n').slice(-3).join(' ');
+    throw new Error(`wrangler の実行に失敗しました: ${note}`);
+  }
+}
+
+// wrangler は必ず設定ファイルを読み、そこに載っているDBしか受け付けない。
+// 名前を渡すと wrangler.toml の database_name に一致してしまい、公開テンプレートでは
+// database_id がプレースホルダのままなので「見つからない」になる。
+// そこで --database が指定されたときは、正しいIDを書いた一時的な設定ファイルを作って渡す。
+let generatedConfig = null;
+function configArgs() {
+  if (config) return ['--config', config];
+  if (local || database === 'DB') return [];
+  if (!generatedConfig) {
+    const list = JSON.parse(run(['wrangler', 'd1', 'list', '--json']));
+    const found = list.find((item) => item.name === database || item.uuid === database);
+    if (!found) {
+      throw new Error(`データベース「${database}」が見つかりません。使えるのは: ${list.map((item) => item.name).join(', ')}`);
+    }
+    generatedConfig = join(mkdtempSync(join(tmpdir(), 'family-talk-recover-')), 'wrangler.toml');
+    writeFileSync(generatedConfig, [
+      'name = "family-talk-recover"',
+      'compatibility_date = "2026-05-15"',
+      '',
+      '[[d1_databases]]',
+      'binding = "DB"',
+      `database_name = "${found.name}"`,
+      `database_id = "${found.uuid}"`,
+      '',
+    ].join('\n'));
+  }
+  return ['--config', generatedConfig];
+}
+
 function d1(sql) {
   // --local は手元の開発用DBに向ける(動作確認用)。既定は本番。
-  const args = ['wrangler', 'd1', 'execute', database, process.argv.includes('--local') ? '--local' : '--remote', '--json', '--command', sql];
-  if (config) args.push('--config', config);
+  const args = ['wrangler', 'd1', 'execute', 'DB', local ? '--local' : '--remote', '--json', '--command', sql, ...configArgs()];
   if (environment !== undefined) args.push('--env', environment);
-  const raw = execFileSync('npx', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });
+  const raw = run(args);
   return JSON.parse(raw.slice(raw.indexOf('[')))[0].results;
 }
 
 // 対象は既定でグループのオーナー。--member "名前" で別のメンバーにも出せる。
+process.on('uncaughtException', (error) => {
+  console.error(`\n${error.message}\n`);
+  process.exit(1);
+});
+
 const escaped = (memberName ?? '').replace(/'/g, "''");
 const [target] = d1(memberName
   ? `select i.id, i.display_name, m.space_id from space_members m join identities i on i.id = m.identity_id where i.display_name = '${escaped}' limit 1`
