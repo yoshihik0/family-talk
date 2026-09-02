@@ -180,8 +180,6 @@ export default function ChatClient() {
   // 聞き取りの「世代」。開始のたびに増やし、この番号が一致する回だけが書き込める。
   // 前回の認識が終了しきらずに残っていても、古い世代は何もできなくなる。
   const voiceEpochRef = useRef(0);
-  // 直前に取り込んだ断片。伸びた版が届いたら、この断片を置き換える。
-  const voiceLastChunkRef = useRef('');
   const voicePendingSubmitRef = useRef(false);
   const draftRef = useRef('');
   const conversationRef = useRef<ConversationPayload | null>(null);
@@ -470,7 +468,6 @@ export default function ChatClient() {
 
     voiceManualStopRef.current = false;
     voiceFinalTranscriptRef.current = '';
-    voiceLastChunkRef.current = '';
     clearVoiceLog();
     recordVoice({ kind: 'start', epoch });
     setListening(true);
@@ -483,6 +480,8 @@ export default function ChatClient() {
     const beginSession = () => {
       if (voiceEpochRef.current !== epoch) return;
       const session = ++sessionCount;
+      // このセッションが認識した文の全体。届くたびに組み直して置き換える。
+      let sessionText = '';
       const recognition = new SpeechRecognition();
       recognition.lang = 'ja-JP';
       recognition.continuous = true;
@@ -497,37 +496,51 @@ export default function ChatClient() {
         // 既に次のセッションへ切り替わっている場合、古いセッションから遅れて届いた結果は
         // 捨てる。拾ってしまうと、同じ発話がもう一度足されて文が重複する。
         if (voiceEpochRef.current !== epoch || recognitionRef.current !== recognition) return;
-        let text = '';
+        // results の中身は端末によって意味が違う。
+        //   (a) 発話を区切った断片が並ぶ端末 → つなげるのが正しい
+        //   (b) 同じ発話が伸びていくスナップショットが溜まる端末 → 一番長いものが正しい
+        // (b) を素朴につなげると「とと言っと言ってと言っても…」と何倍にも膨らむ。
+        // (b) では末尾が言い直されること(「あはっと」→「あーっと」)もあるため、要素ごとの
+        // 前方一致ではなく、配列全体の形で見分ける。最後の要素が最初の要素で始まっていれば
+        // 同じ発話を積み上げている(b)とみなす。
+        const finals: string[] = [];
         for (let index = 0; index < event.results.length; index += 1) {
           const result = event.results[index];
-          if (result.isFinal) text += result[0].transcript;
+          if (result.isFinal) finals.push(result[0].transcript);
+        }
+        let text = '';
+        if (finals.length > 1 && finals[finals.length - 1].startsWith(finals[0])) {
+          text = finals.reduce((longest, part) => (part.length >= longest.length ? part : longest), '');
+        } else {
+          for (const part of finals) {
+            if (!text) text = part;
+            else if (part.startsWith(text)) text = part;   // 伸びた版
+            else if (!text.endsWith(part)) text += part;   // 新しい断片(既出なら足さない)
+          }
         }
         if (!text) return;
-        // 比べる相手は「全体」ではなく「直前に取り込んだ断片」。
-        // 全体と比べると、雑音などで一度でも噛み合わなくなった時点で判定が効かなくなり、
-        // 以降の断片がすべて足されて文字が何倍にも増えてしまう。
-        const total = voiceFinalTranscriptRef.current;
-        const last = voiceLastChunkRef.current;
-        const next = last && text.startsWith(last)
-          ? total.slice(0, total.length - last.length) + text  // 同じ断片が伸びた → 置き換える
-          : total.endsWith(text) ? total                       // 既に入っている → そのまま
-          : total + text;                                      // 新しい断片 → 足す
+        // text はこのセッションが認識した文の全体なので、足さずに置き換える。
+        // 末尾を言い直した場合(「あはっ」→「あーっ」)も、これで正しく差し替わる。
+        sessionText = text;
+        const next = voiceFinalTranscriptRef.current + sessionText;
         recordVoice({
           kind: 'result', epoch, session,
           resultIndex: event.resultIndex,
           results: Array.from(event.results as ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>,
             (result) => ({ final: Boolean(result.isFinal), text: result[0].transcript })),
-          text, last, total, next,
+          text, total: voiceFinalTranscriptRef.current, next,
         });
-        voiceFinalTranscriptRef.current = next;
-        voiceLastChunkRef.current = text;
         setDraft(next);
       };
       recognition.onerror = () => { recordVoice({ kind: 'error', epoch, session }); stopVoiceInput(); };
       recognition.onend = () => {
-        recordVoice({ kind: 'end', epoch, session });
+        recordVoice({ kind: 'end', epoch, session, text: sessionText });
         if (voiceEpochRef.current !== epoch || recognitionRef.current !== recognition) return;
         recognitionRef.current = null;
+        // このセッション分を確定させる。再開後に最初から返してくる端末もあるので、
+        // 既にある文の続きになっている場合は足さずに置き換える。
+        const base = voiceFinalTranscriptRef.current;
+        voiceFinalTranscriptRef.current = !base || sessionText.startsWith(base) ? sessionText : base + sessionText;
         // 蓄積は onresult の時点で確定済みなので、ここで詰め直すものは無い。
         if (!voiceManualStopRef.current) {
           beginSession();
