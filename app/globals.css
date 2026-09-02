@@ -363,3 +363,6 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 /* 管理ツールは同じタブで開くので、会話へ戻る導線を必ず出す。メンバー欄の「編集」などと
    同じボタンの見た目に揃える。 */
 .admin-back-link { flex: 0 0 auto; padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; line-height: 1.4; text-decoration: none; }
+
+/* 通知が断られている状態は行き止まりになりやすいので、直し方を目立たせる。 */
+.notification-blocked { margin-top: 8px; padding: 10px 12px; color: var(--ink); background: var(--context-soft); border-radius: 10px; }

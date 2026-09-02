@@ -69,6 +69,16 @@ function canManage(role: string) {
 
 class SetupRequiredError extends Error {}
 
+// 通知を一度断ると、ブラウザは二度と確認を出さない。アプリ側からは復帰できないので、
+// どこを開けば直せるかを端末に合わせて案内する。
+function notificationRecoveryHint() {
+  const ua = typeof navigator === 'undefined' ? '' : navigator.userAgent;
+  if (/iPhone|iPad|iPod/.test(ua)) return '「設定」アプリ →「通知」→ このアプリを選んで、通知をオンにしてください。';
+  if (/Android/.test(ua)) return '端末の「設定」→「アプリ」→ このアプリ →「通知」をオンにしてください。';
+  if (/Macintosh/.test(ua)) return 'システム設定 →「通知」から、このアプリの通知をオンにしてください。';
+  return 'ブラウザのアドレスバーの左にあるアイコンから、このサイトの通知を「許可」に変えてください。';
+}
+
 // ログイン情報を失った端末に案内を出すため、ログインできているあいだに控えておく。
 // サーバーに未認証で聞くと、URLを知っているだけの相手に管理者名を教えることになるので、
 // 「以前ログインできていた端末の中」にだけ残す。
@@ -290,7 +300,17 @@ export default function ChatClient() {
   }, [conversation?.space.id]);
 
   useEffect(() => {
-    if (conversation) getNotificationState().then(setNotificationStatus).catch(() => setNotificationStatus('default'));
+    if (!conversation) return;
+    const check = () => { getNotificationState().then(setNotificationStatus).catch(() => setNotificationStatus('default')); };
+    check();
+    // 端末の設定で許可し直して戻ってきたときに、表示が古いままにならないようにする。
+    const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', check);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', check);
+    };
   }, [conversation?.space.id]);
 
   useEffect(() => {
@@ -853,9 +873,14 @@ export default function ChatClient() {
             </div>
             <hr className="settings-divider" />
             <div className="settings-row settings-row-right">
-              <button className="personal-notification" type="button" onClick={requestNotifications} disabled={notificationStatus === 'unsupported' || notificationStatus === 'granted' || notificationStatus === 'denied'}>{notificationStatus === 'granted' ? '通知を許可済み' : notificationStatus === 'denied' ? '通知は未許可' : notificationStatus === 'unsupported' ? '通知に非対応' : '通知を許可'}</button>
+              <button className="personal-notification" type="button" onClick={requestNotifications} disabled={notificationStatus === 'unsupported' || notificationStatus === 'granted' || notificationStatus === 'denied'}>{notificationStatus === 'granted' ? '通知を許可済み' : notificationStatus === 'denied' ? '通知はオフ' : notificationStatus === 'unsupported' ? '通知に非対応' : '通知を許可'}</button>
               <button className="device-link-toggle" type="button" onClick={() => (deviceUrl ? setDeviceUrl('') : createDeviceLink())}>{deviceUrl ? '閉じる' : '別の端末でも使う'}</button>
             </div>
+            {notificationStatus === 'denied' && (
+              <p className="settings-note notification-blocked" role="alert">
+                通知はこの端末で断られています。もう一度ここから許可することはできません。{notificationRecoveryHint()}
+              </p>
+            )}
             {deviceUrl && <div className="expandable-panel">
               <small>{new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(deviceExpiresAt))}まで</small>
               <p>{deviceUrl}</p>
