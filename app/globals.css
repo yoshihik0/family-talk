@@ -342,7 +342,9 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
   .admin-card { max-width: 640px; margin-inline: auto; }
 }
 .admin-eyebrow { margin: 0 0 5px; color: var(--context-primary); font-size: 13px; font-weight: 800; }
-.admin-card h1 { margin: 0 0 20px; font-size: 26px; }
+/* 見出しの行に「会話にもどる」を並べる。文字の大きさが違うので下端で揃える。 */
+.admin-card h1 { display: flex; width: 100%; align-items: flex-end; flex-wrap: wrap; gap: 10px; margin: 0 0 20px; font-size: 26px; }
+.admin-title-name { flex: 1 1 auto; line-height: 1; overflow-wrap: anywhere; }
 .admin-state { color: var(--muted); }
 .admin-tools { display: flex; flex-direction: column; gap: 14px; }
 .admin-tool-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; }
@@ -358,6 +360,6 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 .admin-footer { margin-top: 28px; color: var(--muted); font-size: 12px; text-align: center; }
 .admin-footer a { color: var(--muted); font-size: inherit; text-decoration: none; }
 
-/* 管理ツールは同じタブで開くので、会話へ戻る導線を必ず出す。 */
-.admin-back-link { display: inline-block; margin-bottom: 14px; color: var(--context-primary); font-size: 15px; font-weight: 700; text-decoration: none; }
-.admin-back-link:hover { text-decoration: underline; }
+/* 管理ツールは同じタブで開くので、会話へ戻る導線を必ず出す。メンバー欄の「編集」などと
+   同じボタンの見た目に揃える。 */
+.admin-back-link { flex: 0 0 auto; padding: 6px 10px; color: var(--context-strong); background: white; border: 1px solid #bad1c2; border-radius: 8px; font-size: 12px; font-weight: 800; line-height: 1.4; text-decoration: none; }

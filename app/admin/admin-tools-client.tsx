@@ -238,8 +238,11 @@ export default function AdminToolsClient() {
     <main className="admin-shell">
       <section className="admin-card">
         <p className="admin-eyebrow">家族のおしゃべり：管理ツール</p>
-        <a className="admin-back-link" href="/">← 会話にもどる</a>
-        <h1>{groupIcon && <span className="header-icon" aria-hidden="true">{groupIcon}</span>}{groupName || '家族のおしゃべり'}</h1>
+        <h1>
+          {groupIcon && <span className="header-icon" aria-hidden="true">{groupIcon}</span>}
+          <span className="admin-title-name">{groupName || '家族のおしゃべり'}</span>
+          <a className="admin-back-link" href="/">会話にもどる</a>
+        </h1>
 
         {status === 'loading' && <p className="admin-state">確認しています…</p>}
         {status === 'forbidden' && <p className="admin-state" role="alert">この操作には管理者権限が必要です。グループの管理者に依頼してください。</p>}
