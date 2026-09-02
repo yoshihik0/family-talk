@@ -8,7 +8,8 @@ const MAX_ENTRIES = 150;
 
 export type VoiceLogEntry = {
   at: string;
-  kind: 'start' | 'result' | 'end' | 'error';
+  kind: 'start' | 'result' | 'end' | 'error' | 'submit' | 'stop';
+  note?: string;
   epoch?: number;
   session?: number;
   resultIndex?: number;

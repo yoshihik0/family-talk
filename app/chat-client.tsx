@@ -40,7 +40,7 @@ type Recognition = {
   continuous: boolean;
   interimResults: boolean;
   onresult: ((event: RecognitionEvent) => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: { error?: string }) => void) | null;
   onend: (() => void) | null;
   start: () => void;
   stop: () => void;
@@ -431,10 +431,11 @@ export default function ChatClient() {
       // マイクを止めた直後の確定結果はまだ届いていないことがあるので、
       // ここでは即座に送信せず、認識が完全に終わってから(onendで)送る。
       voicePendingSubmitRef.current = true;
+      recordVoice({ kind: 'submit', note: 'submit pressed while listening', text: draftRef.current });
       setSending(true);
       stopVoiceInput();
       // onend が来ないまま止まる端末があるので、少し待って届かなければそのまま送る。
-      voiceSubmitFallbackRef.current = window.setTimeout(flushPendingSubmit, 700);
+      voiceSubmitFallbackRef.current = window.setTimeout(() => flushPendingSubmit('timeout'), 700);
       return;
     }
     if (sending) return;
@@ -443,7 +444,8 @@ export default function ChatClient() {
 
   // 聞き取り中に「送る」を押したときの送信。確定結果を待ちたいので onend で呼ぶが、
   // onend が来ない端末(macOS)があるため、時間切れでも同じ処理を通す。
-  function flushPendingSubmit() {
+  function flushPendingSubmit(from: string) {
+    recordVoice({ kind: 'submit', note: `flush:${from} pending=${voicePendingSubmitRef.current}`, text: draftRef.current });
     if (!voicePendingSubmitRef.current) return;
     voicePendingSubmitRef.current = false;
     if (voiceSubmitFallbackRef.current !== null) {
@@ -459,6 +461,7 @@ export default function ChatClient() {
     if (log) {
       fetch('/api/v1/voice-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: log }).catch(() => undefined);
     }
+    recordVoice({ kind: 'stop', note: `pendingSubmit=${voicePendingSubmitRef.current}` });
     voiceManualStopRef.current = true;
     if (voiceTimerRef.current !== null) window.clearTimeout(voiceTimerRef.current);
     voiceTimerRef.current = null;
@@ -537,7 +540,10 @@ export default function ChatClient() {
         });
         setDraft(next);
       };
-      recognition.onerror = () => { recordVoice({ kind: 'error', epoch, session }); stopVoiceInput(); };
+      recognition.onerror = (event) => {
+        recordVoice({ kind: 'error', epoch, session, note: String(event?.error ?? '') });
+        stopVoiceInput();
+      };
       recognition.onend = () => {
         recordVoice({ kind: 'end', epoch, session, text: sessionText });
         if (voiceEpochRef.current !== epoch || recognitionRef.current !== recognition) return;
@@ -551,7 +557,7 @@ export default function ChatClient() {
           return;
         }
         voiceSegmentsRef.current = [];
-        flushPendingSubmit();
+        flushPendingSubmit('onend');
       };
       recognitionRef.current = recognition;
       recognition.start();
@@ -893,7 +899,7 @@ export default function ChatClient() {
 
         <form className={`composer${listening ? ' listening' : ''}`} onSubmit={submitMessage}>
           <label className="sr-only" htmlFor="message">メッセージ</label>
-          <textarea id="message" name="message" rows={2} maxLength={2000} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="ここに書きます" />
+          <textarea id="message" name="message" rows={2} maxLength={2000} value={draft} onChange={(event) => { setDraft(event.target.value); if (listening) stopVoiceInput(); }} placeholder="ここに書きます" />
           <div className="composer-actions">
             {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <button className={`voice-button${listening ? ' listening' : ''}`} type="button" onClick={startVoiceInput}>
               <span className="voice-dot" aria-hidden="true">●</span>{listening ? '聞き取り中…' : '話して入力'}
