@@ -269,9 +269,7 @@ export default function ChatClient() {
 
   useEffect(() => {
     if (!conversation) return;
-    const manifest = document.querySelector<HTMLLinkElement>('link[rel="manifest"]') ?? document.head.appendChild(document.createElement('link'));
-    manifest.rel = 'manifest';
-    manifest.href = '/api/v1/app-manifest';
+    // manifestは layout.tsx がHTMLに書き出しているので、ここでは触らない。
     getAppServiceWorker().catch(() => undefined);
   }, [conversation?.space.id]);
 
