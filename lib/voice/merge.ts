@@ -26,16 +26,39 @@ function commonLength(a: string, b: string) {
 // 話した言葉を消すより、重複が残る方を選ぶ。
 const SIMILAR_RATIO = 0.6;
 
+function sameUtterance(previous: string, part: string) {
+  return part.startsWith(previous)
+    || previous.startsWith(part)
+    || commonLength(previous, part) >= Math.min(previous.length, part.length) * SIMILAR_RATIO;
+}
+
+// 1回の結果配列をひとつの文にまとめる。
+// 端末によって配列の意味が違う。
+//   (a) 別々の発話が並ぶ(仕様どおりの端末) → つなげる
+//   (b) 同じ発話のスナップショットが溜まる → 一番長いものが答え
+// (b) では聞き間違いや言い直しで連鎖が途切れるため、要素を順に見ていくと、
+// 一度切り離した断片が取り残されて重複する。隣り合う要素が「同じ発話」と
+// 言える割合を先に数え、過半数なら(b)とみなして一番長いものを採る。
+export function collapseResults(finals: readonly string[]): string {
+  if (finals.length === 0) return '';
+  if (finals.length === 1) return finals[0];
+
+  let similar = 0;
+  for (let index = 1; index < finals.length; index += 1) {
+    if (sameUtterance(finals[index - 1], finals[index])) similar += 1;
+  }
+  if (similar * 2 >= finals.length - 1) {
+    return finals.reduce((longest, part) => (part.length >= longest.length ? part : longest), '');
+  }
+  return joinSpoken(finals.reduce<string[]>((parts, part) => mergeSpoken(parts, part), []));
+}
+
 export function mergeSpoken(parts: readonly string[], part: string): string[] {
   if (!part) return [...parts];
   const previous = parts[parts.length - 1];
   if (previous === undefined) return [part];
 
-  const sameUtterance = part.startsWith(previous)
-    || previous.startsWith(part)
-    || commonLength(previous, part) >= Math.min(previous.length, part.length) * SIMILAR_RATIO;
-
-  if (!sameUtterance) return [...parts, part];
+  if (!sameUtterance(previous, part)) return [...parts, part];
   return [...parts.slice(0, -1), part.length >= previous.length ? part : previous];
 }
 

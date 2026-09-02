@@ -58,7 +58,7 @@ const textSizeLabels: Record<TextSize, string> = {
 import { recoveryInstructionsPrompt, serverNameFromUrl } from '@/lib/text/update-instructions';
 import { canReadAloud, copyText, readAloud, readStored, removeStored, writeStored } from '@/lib/browser/compat';
 import { clearVoiceLog, readVoiceLog, recordVoice } from '@/lib/voice/diagnostics';
-import { joinSpoken, mergeSpoken } from '@/lib/voice/merge';
+import { collapseResults, joinSpoken, mergeSpoken } from '@/lib/voice/merge';
 import { PROFILE_COLORS as profileColors } from '@/lib/theme/colors';
 import { tintWithWhite } from '@/lib/theme/tint';
 
@@ -498,14 +498,12 @@ export default function ChatClient() {
         // 既に次のセッションへ切り替わっている場合、古いセッションから遅れて届いた結果は
         // 捨てる。拾ってしまうと、同じ発話がもう一度足されて文が重複する。
         if (voiceEpochRef.current !== epoch || recognitionRef.current !== recognition) return;
-        // 結果配列の中身は端末によって意味が違う。断片が並ぶこともあれば、
-        // 同じ発話のスナップショットが溜まることもある。同じ規則で畳む。
-        let parts: string[] = [];
+        const finals: string[] = [];
         for (let index = 0; index < event.results.length; index += 1) {
           const result = event.results[index];
-          if (result.isFinal) parts = mergeSpoken(parts, result[0].transcript);
+          if (result.isFinal) finals.push(result[0].transcript);
         }
-        const text = joinSpoken(parts);
+        const text = collapseResults(finals);
         if (!text) return;
         // このセッションの文を、確定済みの並びへ同じ規則で重ねて表示する。
         sessionText = text;
