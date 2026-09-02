@@ -1,6 +1,6 @@
 {
   "name": "family-talk",
-  "version": "0.12.15",
+  "version": "0.12.16",
   "private": true,
   "engines": {
     "node": ">=22.13.0"

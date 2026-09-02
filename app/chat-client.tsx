@@ -179,6 +179,11 @@ export default function ChatClient() {
   const voiceManualStopRef = useRef(false);
   // 確定した発話の並び。セッションをまたいで貯める。
   const voiceSegmentsRef = useRef<string[]>([]);
+  // 音声入力を始めた時点で入力欄にあった文。認識結果はこの後ろに足すだけで、
+  // ここは書き換えない(手で消した部分が復活しないように)。
+  const voicePrefixRef = useRef('');
+  // onend が来ない端末でも送信できるようにするための保険。
+  const voiceSubmitFallbackRef = useRef<number | null>(null);
   // 聞き取りの「世代」。開始のたびに増やし、この番号が一致する回だけが書き込める。
   // 前回の認識が終了しきらずに残っていても、古い世代は何もできなくなる。
   const voiceEpochRef = useRef(0);
@@ -428,10 +433,24 @@ export default function ChatClient() {
       voicePendingSubmitRef.current = true;
       setSending(true);
       stopVoiceInput();
+      // onend が来ないまま止まる端末があるので、少し待って届かなければそのまま送る。
+      voiceSubmitFallbackRef.current = window.setTimeout(flushPendingSubmit, 700);
       return;
     }
     if (sending) return;
     await sendMessageText(draft.trim());
+  }
+
+  // 聞き取り中に「送る」を押したときの送信。確定結果を待ちたいので onend で呼ぶが、
+  // onend が来ない端末(macOS)があるため、時間切れでも同じ処理を通す。
+  function flushPendingSubmit() {
+    if (!voicePendingSubmitRef.current) return;
+    voicePendingSubmitRef.current = false;
+    if (voiceSubmitFallbackRef.current !== null) {
+      window.clearTimeout(voiceSubmitFallbackRef.current);
+      voiceSubmitFallbackRef.current = null;
+    }
+    void sendMessageText(draftRef.current.trim());
   }
 
   function stopVoiceInput() {
@@ -470,6 +489,7 @@ export default function ChatClient() {
 
     voiceManualStopRef.current = false;
     voiceSegmentsRef.current = [];
+    voicePrefixRef.current = draftRef.current;
     clearVoiceLog();
     recordVoice({ kind: 'start', epoch });
     setListening(true);
@@ -507,13 +527,13 @@ export default function ChatClient() {
         if (!text) return;
         // このセッションの文を、確定済みの並びへ同じ規則で重ねて表示する。
         sessionText = text;
-        const next = joinSpoken(mergeSpoken(voiceSegmentsRef.current, sessionText));
+        const next = voicePrefixRef.current + joinSpoken(mergeSpoken(voiceSegmentsRef.current, sessionText));
         recordVoice({
           kind: 'result', epoch, session,
           resultIndex: event.resultIndex,
           results: Array.from(event.results as ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>,
             (result) => ({ final: Boolean(result.isFinal), text: result[0].transcript })),
-          text, total: joinSpoken(voiceSegmentsRef.current), next,
+          text, total: voicePrefixRef.current + joinSpoken(voiceSegmentsRef.current), next,
         });
         setDraft(next);
       };
@@ -531,10 +551,7 @@ export default function ChatClient() {
           return;
         }
         voiceSegmentsRef.current = [];
-        if (voicePendingSubmitRef.current) {
-          voicePendingSubmitRef.current = false;
-          void sendMessageText(draftRef.current.trim());
-        }
+        flushPendingSubmit();
       };
       recognitionRef.current = recognition;
       recognition.start();
