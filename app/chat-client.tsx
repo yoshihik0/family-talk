@@ -184,6 +184,9 @@ export default function ChatClient() {
   const voicePrefixRef = useRef('');
   // onend が来ない端末でも送信できるようにするための保険。
   const voiceSubmitFallbackRef = useRef<number | null>(null);
+  // キーボードで直したあと、認識結果を一切受け付けないための印。
+  // stop() しても onend が来ない端末では、止めたつもりでも結果が届き続けるため。
+  const voiceDiscardRef = useRef(false);
   // 聞き取りの「世代」。開始のたびに増やし、この番号が一致する回だけが書き込める。
   // 前回の認識が終了しきらずに残っていても、古い世代は何もできなくなる。
   const voiceEpochRef = useRef(0);
@@ -497,6 +500,7 @@ export default function ChatClient() {
     voiceManualStopRef.current = false;
     voiceSegmentsRef.current = [];
     voicePrefixRef.current = draftRef.current;
+    voiceDiscardRef.current = false;
     clearVoiceLog();
     recordVoice({ kind: 'start', epoch });
     setListening(true);
@@ -524,6 +528,7 @@ export default function ChatClient() {
       recognition.onresult = (event) => {
         // 既に次のセッションへ切り替わっている場合、古いセッションから遅れて届いた結果は
         // 捨てる。拾ってしまうと、同じ発話がもう一度足されて文が重複する。
+        if (voiceDiscardRef.current) return;
         if (voiceEpochRef.current !== epoch || recognitionRef.current !== recognition) return;
         const finals: string[] = [];
         for (let index = 0; index < event.results.length; index += 1) {
@@ -903,7 +908,7 @@ export default function ChatClient() {
 
         <form className={`composer${listening ? ' listening' : ''}`} onSubmit={submitMessage}>
           <label className="sr-only" htmlFor="message">メッセージ</label>
-          <textarea id="message" name="message" rows={2} maxLength={2000} value={draft} onChange={(event) => { setDraft(event.target.value); if (listening) stopVoiceInput(); }} placeholder="ここに書きます" />
+          <textarea id="message" name="message" rows={2} maxLength={2000} value={draft} onChange={(event) => { setDraft(event.target.value); if (listening) { voiceDiscardRef.current = true; stopVoiceInput(); } }} placeholder="ここに書きます" />
           <div className="composer-actions">
             {((conversation.space.settings.policy ?? {}) as { allowAudio?: boolean }).allowAudio !== false && <button className={`voice-button${listening ? ' listening' : ''}`} type="button" onClick={startVoiceInput}>
               <span className="voice-dot" aria-hidden="true">●</span>{listening ? '聞き取り中…' : '話して入力'}
