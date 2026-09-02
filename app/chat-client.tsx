@@ -176,6 +176,9 @@ export default function ChatClient() {
   const voiceTimerRef = useRef<number | null>(null);
   const voiceManualStopRef = useRef(false);
   const voiceFinalTranscriptRef = useRef('');
+  // 聞き取りの「世代」。開始のたびに増やし、この番号が一致する回だけが書き込める。
+  // 前回の認識が終了しきらずに残っていても、古い世代は何もできなくなる。
+  const voiceEpochRef = useRef(0);
   const voicePendingSubmitRef = useRef(false);
   const draftRef = useRef('');
   const conversationRef = useRef<ConversationPayload | null>(null);
@@ -451,6 +454,12 @@ export default function ChatClient() {
       return;
     }
 
+    // 前回の聞き取りが残っている可能性があるので、ここで世代を進めて無効化する。
+    const epoch = voiceEpochRef.current + 1;
+    voiceEpochRef.current = epoch;
+    try { recognitionRef.current?.stop(); } catch { /* 既に止まっていても構わない */ }
+    recognitionRef.current = null;
+
     voiceManualStopRef.current = false;
     voiceFinalTranscriptRef.current = '';
     setListening(true);
@@ -460,36 +469,39 @@ export default function ChatClient() {
     // それまでの文章を保ったまま自動的に聞き取りを再開し、実質的な聞き取り
     // 時間が短くなりすぎないようにする。
     const beginSession = () => {
+      if (voiceEpochRef.current !== epoch) return;
       const recognition = new SpeechRecognition();
       recognition.lang = 'ja-JP';
       recognition.continuous = true;
       recognition.interimResults = false;
-      // このセッションで確定した文。毎回 event.results から組み直すので、同じ結果が
-      // 何度届いても二重にならない。resultIndex は端末によって当てにならないため使わない。
-      let sessionText = '';
+      // 端末によって、認識結果の返し方が大きく違う。
+      //   (1) 発話の切れ目ごとにセッションを切り、そのたびに「最初からの全文」を返す端末
+      //   (2) セッション内で結果を累積して返す端末
+      //   (3) 今回確定した分だけを返す端末
+      // セッション単位で足していくと(1)で全文が何度も積み重なって暴走するため、
+      // 全体を1本の文として扱い、届いた文が既に持っている文の続きなら差し替える。
       recognition.onresult = (event) => {
         // 既に次のセッションへ切り替わっている場合、古いセッションから遅れて届いた結果は
         // 捨てる。拾ってしまうと、同じ発話がもう一度足されて文が重複する。
-        if (recognitionRef.current !== recognition) return;
+        if (voiceEpochRef.current !== epoch || recognitionRef.current !== recognition) return;
         let text = '';
         for (let index = 0; index < event.results.length; index += 1) {
           const result = event.results[index];
           if (result.isFinal) text += result[0].transcript;
         }
         if (!text) return;
-        // 端末によって results の中身が違う。これまでの続きを含んでいれば差し替え、
-        // 今回の分だけを返してくる端末なら足す。長さでは判別できないので前方一致で見る。
-        sessionText = text.startsWith(sessionText) ? text : sessionText + text;
-        setDraft(voiceFinalTranscriptRef.current + sessionText);
+        const total = voiceFinalTranscriptRef.current;
+        const next = !total || text.startsWith(total) ? text        // 続きを含んでいる → 差し替え
+          : total.endsWith(text) ? total                            // 既に入っている → そのまま
+          : total + text;                                           // 本当に新しい分 → 足す
+        voiceFinalTranscriptRef.current = next;
+        setDraft(next);
       };
       recognition.onerror = () => stopVoiceInput();
       recognition.onend = () => {
-        if (recognitionRef.current !== recognition) return;
+        if (voiceEpochRef.current !== epoch || recognitionRef.current !== recognition) return;
         recognitionRef.current = null;
-        // このセッション分を蓄積へ確定させる。同期的に行うので、直後に再開しても
-        // 次のセッションが古い蓄積を見てしまうことはない。
-        voiceFinalTranscriptRef.current += sessionText;
-        sessionText = '';
+        // 蓄積は onresult の時点で確定済みなので、ここで詰め直すものは無い。
         if (!voiceManualStopRef.current) {
           beginSession();
           return;
