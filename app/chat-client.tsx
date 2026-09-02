@@ -32,7 +32,9 @@ type GroupMember = {
 };
 
 
-type RecognitionEvent = { results: ArrayLike<{ 0: { transcript: string } }> };
+// resultIndex は「この回で新しく届いた結果の開始位置」、isFinal は確定かどうか。
+// どちらも Web Speech API の標準だが、この型定義には無かったので追加する。
+type RecognitionEvent = { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> };
 type Recognition = {
   lang: string;
   continuous: boolean;
@@ -462,19 +464,31 @@ export default function ChatClient() {
       recognition.lang = 'ja-JP';
       recognition.continuous = true;
       recognition.interimResults = false;
+      // 届いた結果のうち「今回新しく確定した分」だけを足す。
+      // event.results はセッションの全結果を持つので、それを丸ごと蓄積に足すと、
+      // 認識サービスが前の結果を持ち越したまま再開したときに同じ文が二重に入り、
+      // 切れ目のたびに倍々で増えてしまう。
       recognition.onresult = (event) => {
-        const sessionTranscript = Array.from(event.results).map((result) => result[0].transcript).join('');
-        setDraft(voiceFinalTranscriptRef.current + sessionTranscript);
+        // 既に次のセッションへ切り替わっている場合、古いセッションから遅れて届いた結果は
+        // 捨てる。拾ってしまうと、同じ発話がもう一度足されて文が重複する。
+        if (recognitionRef.current !== recognition) return;
+        let added = '';
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+          const result = event.results[index];
+          if (result.isFinal) added += result[0].transcript;
+        }
+        if (!added) return;
+        voiceFinalTranscriptRef.current += added;
+        setDraft(voiceFinalTranscriptRef.current);
       };
       recognition.onerror = () => stopVoiceInput();
       recognition.onend = () => {
         if (recognitionRef.current !== recognition) return;
         recognitionRef.current = null;
         if (!voiceManualStopRef.current) {
-          setDraft((current) => {
-            voiceFinalTranscriptRef.current = current;
-            return current;
-          });
+          // 蓄積は onresult の時点で確定させているので、ここで詰め直す必要はない。
+          // (setDraft の更新関数は後で実行されるため、直後に再開すると古い値のまま
+          //  次の結果を受けてしまう恐れがあった)
           beginSession();
           return;
         }
