@@ -510,12 +510,27 @@ export default function ChatClient() {
     // それまでの文章を保ったまま自動的に聞き取りを再開し、実質的な聞き取り
     // 時間が短くなりすぎないようにする。
     let sessionCount = 0;
+    // 認識オブジェクトは1回の聞き取りにつき1つだけ作り、切れ目では start() し直す。
+    // 作り直すとブラウザによっては毎回マイクの許可を求められるため。
+    const recognition = new SpeechRecognition();
+    // このセッションが認識した文の全体。届くたびに組み直して置き換える。
+    let sessionText = '';
+    let session = 0;
+
     const beginSession = () => {
       if (voiceEpochRef.current !== epoch) return;
-      const session = ++sessionCount;
-      // このセッションが認識した文の全体。届くたびに組み直して置き換える。
-      let sessionText = '';
-      const recognition = new SpeechRecognition();
+      session = ++sessionCount;
+      sessionText = '';
+      recognitionRef.current = recognition;
+      try {
+        recognition.start();
+      } catch {
+        // 直前の停止が終わっていない場合など。少し待って開き直す。
+        window.setTimeout(() => { if (voiceEpochRef.current === epoch) { try { recognition.start(); } catch { /* あきらめる */ } } }, 250);
+      }
+    };
+
+    const setUpRecognition = () => {
       recognition.lang = 'ja-JP';
       recognition.continuous = true;
       recognition.interimResults = false;
@@ -568,9 +583,9 @@ export default function ChatClient() {
         voiceSegmentsRef.current = [];
         flushPendingSubmit('onend');
       };
-      recognitionRef.current = recognition;
-      recognition.start();
     };
+
+    setUpRecognition();
     beginSession();
 
     const configuredDuration = Number((conversation?.space.settings.policy as { voiceDuration?: unknown } | undefined)?.voiceDuration);
