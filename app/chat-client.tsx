@@ -399,6 +399,7 @@ export default function ChatClient() {
   }
 
   async function sendMessageText(text: string) {
+    recordVoice({ kind: 'submit', note: 'sendMessageText', text });
     if (!text) {
       setSending(false);
       return;
@@ -456,12 +457,15 @@ export default function ChatClient() {
   }
 
   function stopVoiceInput() {
+    recordVoice({ kind: 'stop', note: `pendingSubmit=${voicePendingSubmitRef.current} listening=${listening}` });
     // 記録をサーバーへ送る(管理者のときだけ受け付けられる)。原因が分かったら外す。
-    const log = readVoiceLog();
-    if (log) {
-      fetch('/api/v1/voice-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: log }).catch(() => undefined);
-    }
-    recordVoice({ kind: 'stop', note: `pendingSubmit=${voicePendingSubmitRef.current}` });
+    // 止めた直後に起きること(onend・時間切れ・送信)まで含めたいので、少し待ってから送る。
+    window.setTimeout(() => {
+      const log = readVoiceLog();
+      if (log) {
+        fetch('/api/v1/voice-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: log }).catch(() => undefined);
+      }
+    }, 1200);
     voiceManualStopRef.current = true;
     if (voiceTimerRef.current !== null) window.clearTimeout(voiceTimerRef.current);
     voiceTimerRef.current = null;
