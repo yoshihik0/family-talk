@@ -57,6 +57,7 @@ const textSizeLabels: Record<TextSize, string> = {
 };
 import { recoveryInstructionsPrompt, serverNameFromUrl } from '@/lib/text/update-instructions';
 import { canReadAloud, copyText, readAloud, readStored, removeStored, writeStored } from '@/lib/browser/compat';
+import { clearVoiceLog, readVoiceLog, recordVoice } from '@/lib/voice/diagnostics';
 import { PROFILE_COLORS as profileColors } from '@/lib/theme/colors';
 import { tintWithWhite } from '@/lib/theme/tint';
 
@@ -434,6 +435,11 @@ export default function ChatClient() {
   }
 
   function stopVoiceInput() {
+    // 記録をサーバーへ送る(管理者のときだけ受け付けられる)。原因が分かったら外す。
+    const log = readVoiceLog();
+    if (log) {
+      fetch('/api/v1/voice-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: log }).catch(() => undefined);
+    }
     voiceManualStopRef.current = true;
     if (voiceTimerRef.current !== null) window.clearTimeout(voiceTimerRef.current);
     voiceTimerRef.current = null;
@@ -465,14 +471,18 @@ export default function ChatClient() {
     voiceManualStopRef.current = false;
     voiceFinalTranscriptRef.current = '';
     voiceLastChunkRef.current = '';
+    clearVoiceLog();
+    recordVoice({ kind: 'start', epoch });
     setListening(true);
 
     // 一部の端末(古いAndroid WebViewなど)は無音を検知すると、指定時間より
     // かなり早くセッションを打ち切ってしまう。手動停止やタイマー満了でなければ
     // それまでの文章を保ったまま自動的に聞き取りを再開し、実質的な聞き取り
     // 時間が短くなりすぎないようにする。
+    let sessionCount = 0;
     const beginSession = () => {
       if (voiceEpochRef.current !== epoch) return;
+      const session = ++sessionCount;
       const recognition = new SpeechRecognition();
       recognition.lang = 'ja-JP';
       recognition.continuous = true;
@@ -502,12 +512,20 @@ export default function ChatClient() {
           ? total.slice(0, total.length - last.length) + text  // 同じ断片が伸びた → 置き換える
           : total.endsWith(text) ? total                       // 既に入っている → そのまま
           : total + text;                                      // 新しい断片 → 足す
+        recordVoice({
+          kind: 'result', epoch, session,
+          resultIndex: event.resultIndex,
+          results: Array.from(event.results as ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>,
+            (result) => ({ final: Boolean(result.isFinal), text: result[0].transcript })),
+          text, last, total, next,
+        });
         voiceFinalTranscriptRef.current = next;
         voiceLastChunkRef.current = text;
         setDraft(next);
       };
-      recognition.onerror = () => stopVoiceInput();
+      recognition.onerror = () => { recordVoice({ kind: 'error', epoch, session }); stopVoiceInput(); };
       recognition.onend = () => {
+        recordVoice({ kind: 'end', epoch, session });
         if (voiceEpochRef.current !== epoch || recognitionRef.current !== recognition) return;
         recognitionRef.current = null;
         // 蓄積は onresult の時点で確定済みなので、ここで詰め直すものは無い。
