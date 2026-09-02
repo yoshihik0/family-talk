@@ -9,6 +9,12 @@ import { compareVersions } from '@/lib/text/version';
 
 const MULTI_INVITE_MAX_USES = 50;
 
+// ビルド時に埋め込まれる、この画面を動かしているコード自身のバージョン。
+// サーバーの版数(/api/v1/health)とは別物で、端末が古いコードを掴んだままかどうかを
+// 見分けるために使う。管理ツールの表示だけ新しく見えて実際は古い、という取り違えを防ぐ。
+declare const __APP_VERSION__: string;
+const APP_VERSION = __APP_VERSION__;
+
 type UpdateNotice = { maxVersion: string; message: string };
 type Member = {
   id: string;
@@ -342,7 +348,14 @@ export default function AdminToolsClient() {
               <div className="version-summary">
                 <div>現在のバージョン: {currentVersion || '確認中…'}</div>
                 <div>最新のバージョン: {latestVersion || '確認中…'}{currentVersion && latestVersion && currentVersion === latestVersion && <span className="update-status"> (最新版です)</span>}</div>
+                <div>この端末のアプリ: {APP_VERSION}</div>
               </div>
+              {currentVersion && currentVersion !== APP_VERSION && (
+                <p className="update-notice" role="alert">
+                  この端末は古いアプリ({APP_VERSION})を読み込んだままです。サーバーは{currentVersion}に更新されています。
+                  アプリをいったん完全に終了してから開き直してください。
+                </p>
+              )}
               {applicableNotice && <p className="update-notice" role="alert">{applicableNotice.message}</p>}
               <small>AIエージェントに、この文章をそのまま渡してください。インストールしたときのディレクトリで作業してもらう必要があります。</small>
               <p className="admin-prompt-text">{UPDATE_INSTRUCTIONS_PROMPT}</p>
