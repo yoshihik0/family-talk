@@ -41,6 +41,15 @@ export default {
     // レスポンスは不変なので、ヘッダを足すには作り直す必要がある。
     const headers = new Headers(response.headers);
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) headers.set(name, value);
+
+    // HTMLは毎回サーバーに確認しに行かせる。
+    // HTMLには、その時点のJSファイル名(内容ハッシュ付き)が書かれている。古いHTMLが
+    // 端末に residual すると、そこが指すJSは次のデプロイで配信対象から外れているため、
+    // アプリが開かなくなる。利用者には再インストール以外に直す手段がない。
+    // JS/CSS側はファイル名が変わる作りなので、従来どおり長期キャッシュのままでよい。
+    if ((headers.get('content-type') ?? '').startsWith('text/html') && !headers.has('cache-control')) {
+      headers.set('Cache-Control', 'no-cache');
+    }
     return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   },
 };
