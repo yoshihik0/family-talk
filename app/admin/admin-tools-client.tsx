@@ -232,6 +232,7 @@ export default function AdminToolsClient() {
     <main className="admin-shell">
       <section className="admin-card">
         <p className="admin-eyebrow">家族のおしゃべり：管理ツール</p>
+        <a className="admin-back-link" href="/">← 会話にもどる</a>
         <h1>{groupIcon && <span className="header-icon" aria-hidden="true">{groupIcon}</span>}{groupName || '家族のおしゃべり'}</h1>
 
         {status === 'loading' && <p className="admin-state">確認しています…</p>}

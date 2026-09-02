@@ -357,3 +357,7 @@ button.confirm-safe { color: #395d80; background: #e7eef5; border-color: #bccfe0
 .update-notice { margin: 0; padding: 10px 12px; color: #7a2e24; background: #f6e6e4; border: 1px solid #e3bcb7; border-radius: 10px; font-size: 12px; font-weight: 700; line-height: 1.6; }
 .admin-footer { margin-top: 28px; color: var(--muted); font-size: 12px; text-align: center; }
 .admin-footer a { color: var(--muted); font-size: inherit; text-decoration: none; }
+
+/* 管理ツールは同じタブで開くので、会話へ戻る導線を必ず出す。 */
+.admin-back-link { display: inline-block; margin-bottom: 14px; color: var(--context-primary); font-size: 15px; font-weight: 700; text-decoration: none; }
+.admin-back-link:hover { text-decoration: underline; }

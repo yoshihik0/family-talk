@@ -464,31 +464,33 @@ export default function ChatClient() {
       recognition.lang = 'ja-JP';
       recognition.continuous = true;
       recognition.interimResults = false;
-      // 届いた結果のうち「今回新しく確定した分」だけを足す。
-      // event.results はセッションの全結果を持つので、それを丸ごと蓄積に足すと、
-      // 認識サービスが前の結果を持ち越したまま再開したときに同じ文が二重に入り、
-      // 切れ目のたびに倍々で増えてしまう。
+      // このセッションで確定した文。毎回 event.results から組み直すので、同じ結果が
+      // 何度届いても二重にならない。resultIndex は端末によって当てにならないため使わない。
+      let sessionText = '';
       recognition.onresult = (event) => {
         // 既に次のセッションへ切り替わっている場合、古いセッションから遅れて届いた結果は
         // 捨てる。拾ってしまうと、同じ発話がもう一度足されて文が重複する。
         if (recognitionRef.current !== recognition) return;
-        let added = '';
-        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        let text = '';
+        for (let index = 0; index < event.results.length; index += 1) {
           const result = event.results[index];
-          if (result.isFinal) added += result[0].transcript;
+          if (result.isFinal) text += result[0].transcript;
         }
-        if (!added) return;
-        voiceFinalTranscriptRef.current += added;
-        setDraft(voiceFinalTranscriptRef.current);
+        if (!text) return;
+        // 端末によって results の中身が違う。これまでの続きを含んでいれば差し替え、
+        // 今回の分だけを返してくる端末なら足す。長さでは判別できないので前方一致で見る。
+        sessionText = text.startsWith(sessionText) ? text : sessionText + text;
+        setDraft(voiceFinalTranscriptRef.current + sessionText);
       };
       recognition.onerror = () => stopVoiceInput();
       recognition.onend = () => {
         if (recognitionRef.current !== recognition) return;
         recognitionRef.current = null;
+        // このセッション分を蓄積へ確定させる。同期的に行うので、直後に再開しても
+        // 次のセッションが古い蓄積を見てしまうことはない。
+        voiceFinalTranscriptRef.current += sessionText;
+        sessionText = '';
         if (!voiceManualStopRef.current) {
-          // 蓄積は onresult の時点で確定させているので、ここで詰め直す必要はない。
-          // (setDraft の更新関数は後で実行されるため、直後に再開すると古い値のまま
-          //  次の結果を受けてしまう恐れがあった)
           beginSession();
           return;
         }
@@ -800,7 +802,7 @@ export default function ChatClient() {
               ))}
             </ul>
             {canManage(conversation.me.role) && <div className="admin-links-setting">
-              <a className="admin-tool-link" href="/admin" target="_blank" rel="noreferrer">管理ツールを開く</a>
+              <a className="admin-tool-link" href="/admin">管理ツールを開く</a>
             </div>}
           </div>
           </div>

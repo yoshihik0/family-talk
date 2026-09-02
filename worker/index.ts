@@ -24,7 +24,9 @@ const SECURITY_HEADERS: Record<string, string> = {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
-    "connect-src 'self'",
+    // 管理画面の「アップデート」は、GitHubの生ファイルで最新版を確認する。
+    // ここを許可しないと確認が黙って失敗し、いつまでも「確認中…」のままになる。
+    "connect-src 'self' https://raw.githubusercontent.com",
     // 招待QRの生成などで使う。
     "worker-src 'self'",
     "manifest-src 'self'",
