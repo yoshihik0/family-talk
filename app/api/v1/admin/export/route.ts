@@ -10,9 +10,21 @@ function csvField(value: string) {
   return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
+// 書き出しはサーバー(Workers)で作る。Workers の時計は世界標準時なので、
+// getHours() をそのまま使うと日本より9時間ずれた日時になってしまう。
+// 読むのは日本にいる家族なので、日本時間に直してから並べる。
+const JAPAN_TIME = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Asia/Tokyo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
 function formatDateTime(date: Date) {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return JAPAN_TIME.format(date);
 }
 
 export async function GET(request: Request) {
@@ -63,7 +75,7 @@ export async function GET(request: Request) {
     ].join(','));
   }
 
-  const filename = `family-talk-${new Date().toISOString().slice(0, 10)}.csv`;
+  const filename = `family-talk-${formatDateTime(new Date()).slice(0, 10)}.csv`;
   return new Response(`﻿${lines.join('\n')}\n`, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
