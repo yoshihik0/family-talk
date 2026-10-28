@@ -95,8 +95,8 @@
 アプリを開くと出る画面に、そのまま使えるAI用プロンプトが表示されます。設置したときと同じように、それをコピーしてAIエージェントに渡してください。手元で操作する場合は、次の3つだけ分かれば復旧できます。
 
 1. Cloudflareアカウント
-2. アプリのURL(例: `https://omiya.example.workers.dev`)
-3. サーバー名 = URLの先頭部分(例: `omiya`)。`npx wrangler d1 list` でも確認できます
+2. アプリのURL(例: `https://my-family.example.workers.dev`)
+3. サーバー名 = URLの先頭部分(例: `my-family`)。`npx wrangler d1 list` でも確認できます
 
 **セットアップしたディレクトリが残っている場合**
 

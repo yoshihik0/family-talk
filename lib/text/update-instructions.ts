@@ -4,7 +4,7 @@ export const UPDATE_INSTRUCTIONS_PROMPT =
 // 端末を失った管理者(=Cloudflareの管理権限を持っている人)に渡してもらう指示文。
 // 復旧に本当に要るのはCloudflareアカウントとサーバー名だけなので、画面が知っている
 // URLからその2つを埋めて、セットアップしたディレクトリが残っていなくても辿れるようにする。
-// Cloudflareのサーバー名は、URLのホスト名の先頭ラベル(例: omiya.example.workers.dev -> omiya)。
+// Cloudflareのサーバー名は、URLのホスト名の先頭ラベル(例: my-family.example.workers.dev -> my-family)。
 // ポート付きのURLでも壊れないように、文字列ではなくURLとして解釈する。
 export function serverNameFromUrl(appUrl: string) {
   try { return new URL(appUrl).hostname.split('.')[0]; } catch { return appUrl; }

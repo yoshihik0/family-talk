@@ -5,8 +5,8 @@
 // アプリ側に復旧用の入口を増やさないので、公開される攻撃面はゼロのまま。
 //
 //   npm run recover -- --url https://family-talk.example.workers.dev
-//   npm run recover -- --url https://omiya.example.workers.dev --database omiya
-//   npm run recover -- --config wrangler.personal.toml --env omiya --url https://omiya.example.workers.dev
+//   npm run recover -- --url https://my-family.example.workers.dev --database my-family
+//   npm run recover -- --config wrangler.personal.toml --env my-family --url https://my-family.example.workers.dev
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { mkdtempSync, writeFileSync } from 'node:fs';
